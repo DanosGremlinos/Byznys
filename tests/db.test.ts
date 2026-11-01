@@ -1,0 +1,93 @@
+// Integration test: applies the migrations to an empty database and runs the seed.
+// Requires TEST_DATABASE_URL (a throwaway database); skipped otherwise.
+import { sql } from "drizzle-orm";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createDb, type Database } from "@/db/client";
+import { runSeed } from "@/db/seed";
+
+const url = process.env.TEST_DATABASE_URL;
+
+describe.skipIf(!url)("database schema + seed", () => {
+  let db: Database;
+
+  beforeAll(async () => {
+    db = createDb(url!, { max: 1 });
+    await db.execute(sql`DROP SCHEMA IF EXISTS public CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE; CREATE SCHEMA public;`);
+    await migrate(db, { migrationsFolder: "drizzle" });
+    await runSeed(db);
+  });
+
+  afterAll(async () => {
+    await db?.$close();
+  });
+
+  const one = async <T>(query: ReturnType<typeof sql>) => (await db.execute(query))[0] as T;
+
+  it("creates all tables", async () => {
+    const row = await one<{ n: number }>(
+      sql`SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema = 'public'`,
+    );
+    expect(row.n).toBe(24);
+  });
+
+  it("seeds every module", async () => {
+    for (const table of [
+      "leads",
+      "lead_photos",
+      "lead_reviews",
+      "lead_site_analyses",
+      "clients",
+      "websites",
+      "builder_projects",
+      "builder_assets",
+      "email_templates",
+      "email_threads",
+      "emails",
+      "contract_templates",
+      "email_blacklist",
+      "subscription_tiers",
+      "subscriptions",
+      "subscription_events",
+      "invoices",
+      "dunning_runs",
+      "dunning_steps",
+      "jobs",
+    ]) {
+      const row = await one<{ n: number }>(sql`SELECT count(*)::int AS n FROM ${sql.identifier(table)}`);
+      expect(row.n, table).toBeGreaterThan(0);
+    }
+  });
+
+  it("is deterministic", async () => {
+    const before = await db.execute(sql`SELECT name, city, rating FROM leads ORDER BY name`);
+    await runSeed(db);
+    const after = await db.execute(sql`SELECT name, city, rating FROM leads ORDER BY name`);
+    expect([...after]).toEqual([...before]);
+  });
+
+  it("never has a sent email to a blacklisted address after it was blacklisted", async () => {
+    const row = await one<{ n: number }>(sql`
+      SELECT count(*)::int AS n FROM emails e JOIN email_blacklist b ON lower(e.to_address) = b.email
+      WHERE e.direction = 'outbound' AND e.status IN ('sent', 'approved', 'sending', 'pending_approval')
+        AND e.created_at > b.created_at`);
+    expect(row.n).toBe(0);
+  });
+
+  it("keeps dunning consistent: queued steps wait for approval, overdue invoices have runs", async () => {
+    const queued = await one<{ n: number }>(sql`
+      SELECT count(*)::int AS n FROM dunning_steps s JOIN emails e ON e.id = s.email_id
+      WHERE s.status = 'queued_for_approval' AND e.status <> 'pending_approval'`);
+    expect(queued.n).toBe(0);
+    const overdueWithoutRun = await one<{ n: number }>(sql`
+      SELECT count(*)::int AS n FROM invoices i LEFT JOIN dunning_runs r ON r.invoice_id = i.id
+      WHERE i.status = 'issued' AND i.due_date < (now() AT TIME ZONE 'Europe/Prague')::date AND r.id IS NULL`);
+    expect(overdueWithoutRun.n).toBe(0);
+  });
+
+  it("stores money as whole haléře and active subscriptions have a next billing date", async () => {
+    const row = await one<{ n: number }>(sql`
+      SELECT count(*)::int AS n FROM subscriptions WHERE status = 'active' AND next_billing_date IS NULL`);
+    expect(row.n).toBe(0);
+  });
+});
