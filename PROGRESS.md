@@ -80,11 +80,11 @@ shadcn runtime deps `radix-ui`, `class-variance-authority`, `clsx`, `tailwind-me
 
 ### Deployment setup (done)
 - `vercel.json` pins `framework: nextjs`. The project had been created as "Other", which made the first build fail.
-- The Neon integration gives the Vercel project **one** `DATABASE_URL` for Development, Preview *and* Production
-  (the main/production branch, `ep-bitter-haze…`). Preview env vars are therefore **branch-scoped** to
-  `claude/busy-clarke-49tnmm`, pointing at the Neon dev branch (`ep-long-cloud…`): `DATABASE_URL`,
-  `DATABASE_URL_UNPOOLED`, `PREVIEW_DB_SETUP=1`, `PREVIEW_DB_EXPECTED_HOST`, `AUTH_SECRET`, `ADMIN_EMAIL`,
-  `ADMIN_PASSWORD_HASH`.
+- **Environments:** the Neon Storage connection is connected to **Production only** (main branch, `ep-bitter-haze…`).
+  **All preview deployments** (any git branch) use manual Preview variables pointing at the Neon **dev** branch
+  (`ep-long-cloud…`): `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `PREVIEW_DB_SETUP=1`, `PREVIEW_DB_EXPECTED_HOST`,
+  `AUTH_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`. Per-preview Neon branches were rejected because they are
+  copied from production (real client data later) and would not be seeded.
 - On preview builds, `scripts/vercel-build.mjs` creates the tables, then loads the seed data **only if the
   database is empty**. Both steps are refused unless the DB host equals `PREVIEW_DB_EXPECTED_HOST`, so a preview
   can never touch the production branch. Verified on the dev branch after the first deploy: migration applied,
@@ -99,14 +99,11 @@ shadcn runtime deps `radix-ui`, `class-variance-authority`, `clsx`, `tailwind-me
 - shadcn components were copied from the official shadcn GitHub repo (`ui.shadcn.com` is blocked).
 
 ### Open questions
-1. **Shared DB env in Vercel:** the Neon integration points Preview at the production branch for every branch
-   except this one. Should I switch the integration to automatic per-preview Neon branches, or keep the
-   branch-scoped overrides for each new working branch?
-2. **Mailgun (needed in Phase 2):** a sending domain you own (e.g. your business domain), the sender name, and a
-   subdomain for receiving replies (e.g. `reply.yourdomain.cz`).
+1. **Mailgun (needed in Phase 2):** a sending domain you own, the sender name, and access to its DNS.
 
 ### Answered
 - Payments: none in the app (maybe later). Invoices: none. Packages: per client, from templates. Vercel: Hobby.
+- Preview databases: all previews share the Neon dev branch; production uses main only.
 
 ## Phase 1 — Dashboard, Leads, Builder ⏳ (not started; waiting for approval)
 ## Phase 2 — Messaging/Offers + Inbox ⏳
