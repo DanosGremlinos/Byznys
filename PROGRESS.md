@@ -1,6 +1,10 @@
 # Progress
 
-## Phase 0 — Scaffold, auth, schema, seed, app shell ✅ (preview deploy pending, see open questions)
+## Phase 0 — Scaffold, auth, schema, seed, app shell ✅
+
+**Preview:** https://webbyznys-git-claude-busy-clarke-49tnmm-byznys1.vercel.app (branch alias of the Vercel project
+`webbyznys`). Login: `ADMIN_EMAIL` with the generated admin password (given in chat; replace it with your own
+hash when convenient).
 
 ### Finished
 - **Scaffold:** Next.js 16.4 (App Router, TS strict, Cache Components), Tailwind 4, shadcn/ui (new-york, neutral),
@@ -62,17 +66,29 @@
 shadcn runtime deps `radix-ui`, `class-variance-authority`, `clsx`, `tailwind-merge`, `lucide-react`,
 `tw-animate-css`. `react-hook-form` was approved but isn't installed yet (forms come in Phase 1).
 
+### Deployment setup (done)
+- `vercel.json` pins `framework: nextjs`. The project had been created as "Other", which made the first build fail.
+- The Neon integration gives the Vercel project **one** `DATABASE_URL` for Development, Preview *and* Production
+  (the main/production branch, `ep-bitter-haze…`). Preview env vars are therefore **branch-scoped** to
+  `claude/busy-clarke-49tnmm`, pointing at the Neon dev branch (`ep-long-cloud…`): `DATABASE_URL`,
+  `DATABASE_URL_UNPOOLED`, `PREVIEW_DB_SETUP=1`, `PREVIEW_DB_EXPECTED_HOST`, `AUTH_SECRET`, `ADMIN_EMAIL`,
+  `ADMIN_PASSWORD_HASH`.
+- On preview builds, `scripts/vercel-build.mjs` creates the tables, then loads the seed data **only if the
+  database is empty**. Both steps are refused unless the DB host equals `PREVIEW_DB_EXPECTED_HOST`, so a preview
+  can never touch the production branch. The dev branch is verified to hold the migration and the seed (46 leads,
+  12 clients, 111 invoices, 66 emails).
+- Production env has no `AUTH_SECRET` or admin variables yet, and production builds never touch the database.
+
 ### Environment notes
-- This cloud session's network policy blocks `neon.tech`, `vercel.com`, `api.mailgun.net` and `ui.shadcn.com`.
-  shadcn components were copied from the official shadcn GitHub repo instead of using the CLI.
-  Development and tests ran against a local PostgreSQL 16.
+- The cloud session can reach the Neon console/HTTPS API and the Vercel API, but raw Postgres TCP is not possible
+  through its proxy. Migrations and seeding therefore run in the Vercel preview build, and local tests use a local
+  PostgreSQL 16. `*.vercel.app` is not allowed, so I can't open previews from the session.
+- shadcn components were copied from the official shadcn GitHub repo (`ui.shadcn.com` is blocked).
 
 ### Open questions
-1. **Preview deploy:** not done yet, because this session can't reach Vercel or Neon. Either:
-   (a) import the GitHub repo into Vercel and set the env vars (Preview `DATABASE_URL` = Neon dev branch,
-   optionally `PREVIEW_DB_SETUP=1`), and every push to this branch gets a preview URL; or
-   (b) allow `*.neon.tech` and `vercel.com` / `api.vercel.com` in this environment's network settings and give
-   me a `VERCEL_TOKEN`, and I'll deploy and seed myself.
+1. **Shared DB env in Vercel:** the Neon integration points Preview at the production branch for every branch
+   except this one. Should I switch the integration to automatic per-preview Neon branches, or keep the
+   branch-scoped overrides for each new working branch?
 2. **Payment details in emails:** is the bank account number plus variable symbol enough, or do you also want
    a QR payment code (QR Platba) in dunning emails? That needs a QR library, so it's a new dependency.
 3. **Invoices:** the format is `YYYY-NNNN`, the VS is `YYYYNNNN` and payment is due in 14 days. Do you issue
