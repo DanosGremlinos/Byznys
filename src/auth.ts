@@ -18,9 +18,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(raw) {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) throw new CredentialsSignin();
-        const ok = await checkAdminCredentials(parsed.data.email, parsed.data.password);
-        if (!ok) throw new CredentialsSignin();
-        return { id: "admin", email: parsed.data.email, name: "Admin" };
+        const user = await checkAdminCredentials(parsed.data.email, parsed.data.password);
+        if (!user) throw new CredentialsSignin();
+        return { id: user.email, email: user.email, name: user.name };
       },
     }),
   ],

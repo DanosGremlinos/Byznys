@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkAdminCredentials } from "@/lib/admin-credentials";
+import { checkAdminCredentials, loadUsers } from "@/lib/admin-credentials";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { isPublicPath } from "@/lib/public-paths";
 
@@ -22,15 +22,39 @@ describe("password hashing", () => {
 });
 
 describe("admin credentials", () => {
-  it("accepts only the configured admin", async () => {
+  it("accepts only configured users", async () => {
     const env = { ADMIN_EMAIL: "Admin@Example.cz", ADMIN_PASSWORD_HASH: await hashPassword("heslo") };
-    expect(await checkAdminCredentials("admin@example.cz", "heslo", env)).toBe(true);
-    expect(await checkAdminCredentials(" ADMIN@example.cz ", "heslo", env)).toBe(true);
-    expect(await checkAdminCredentials("jiny@example.cz", "heslo", env)).toBe(false);
-    expect(await checkAdminCredentials("admin@example.cz", "spatne", env)).toBe(false);
+    expect(await checkAdminCredentials("admin@example.cz", "heslo", env)).toEqual({ name: "Admin", email: "admin@example.cz" });
+    expect(await checkAdminCredentials(" ADMIN@example.cz ", "heslo", env)).not.toBeNull();
+    expect(await checkAdminCredentials("jiny@example.cz", "heslo", env)).toBeNull();
+    expect(await checkAdminCredentials("admin@example.cz", "spatne", env)).toBeNull();
   });
+
   it("denies everything when not configured", async () => {
-    expect(await checkAdminCredentials("a@b.cz", "x", {})).toBe(false);
+    expect(await checkAdminCredentials("a@b.cz", "x", {})).toBeNull();
+  });
+
+  it("supports additional full-access users from ADMIN_USERS", async () => {
+    const env = {
+      ADMIN_EMAIL: "daniel@firma.cz",
+      ADMIN_NAME: "Daniel",
+      ADMIN_PASSWORD_HASH: await hashPassword("heslo-d"),
+      ADMIN_USERS: JSON.stringify([
+        { name: "Vitek", email: "Vitek@Firma.cz", passwordHash: await hashPassword("heslo-v") },
+        { name: "Bez hesla", email: "x@firma.cz" },
+      ]),
+    };
+    expect(loadUsers(env).map((u) => u.name)).toEqual(["Daniel", "Vitek"]);
+    expect(await checkAdminCredentials("vitek@firma.cz", "heslo-v", env)).toEqual({ name: "Vitek", email: "vitek@firma.cz" });
+    expect(await checkAdminCredentials("vitek@firma.cz", "heslo-d", env)).toBeNull();
+    expect(await checkAdminCredentials("daniel@firma.cz", "heslo-d", env)).toEqual({ name: "Daniel", email: "daniel@firma.cz" });
+    expect(await checkAdminCredentials("x@firma.cz", "", env)).toBeNull();
+  });
+
+  it("ignores invalid ADMIN_USERS without breaking the primary login", async () => {
+    const env = { ADMIN_EMAIL: "a@b.cz", ADMIN_PASSWORD_HASH: await hashPassword("p"), ADMIN_USERS: "{not json" };
+    expect(loadUsers(env)).toHaveLength(1);
+    expect(await checkAdminCredentials("a@b.cz", "p", env)).not.toBeNull();
   });
 });
 

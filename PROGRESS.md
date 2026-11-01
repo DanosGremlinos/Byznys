@@ -104,6 +104,10 @@ shadcn runtime deps `radix-ui`, `class-variance-authority`, `clsx`, `tailwind-me
 ### Answered
 - Payments: none in the app (maybe later). Invoices: none. Packages: per client, from templates. Vercel: Hobby.
 - Preview databases: all previews share the Neon dev branch; production uses main only.
+- **Second user (Vitek), full access** – owner's request (deviation from "single admin"). Users are configured in
+  env vars: primary `ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH` (+ optional `ADMIN_NAME`) and additional users in
+  `ADMIN_USERS` (JSON array of name, email, scrypt hash). Same data and permissions for everyone; the header
+  shows who is logged in. Who did an action (approve, payment) is not recorded – would need a schema change.
 - Google Places content (reviews, photos): **store it permanently** – owner's decision (needed for building the websites), despite Google's caching terms.
 
 ## Phase 1 — Dashboard, Leads, Builder ✅ (waiting for review)
