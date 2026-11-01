@@ -1,4 +1,4 @@
-import { ArrowLeft, ExternalLink, Hammer, MapPin, RefreshCw } from "lucide-react";
+import { ArrowLeft, ExternalLink, Hammer, Mail, MapPin, RefreshCw } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -77,6 +77,14 @@ async function LeadDetail({ params }: Pick<PageProps<"/leads/[id]">, "params">) 
               Znovu analyzovat web
             </Button>
           </form>
+          {lead.email ? (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/messaging/queue/new?lead=${lead.id}`}>
+                <Mail />
+                Připravit nabídku
+              </Link>
+            </Button>
+          ) : null}
           <form action={goToBuilderFromLead.bind(null, lead.id)}>
             <Button type="submit" size="sm">
               <Hammer />

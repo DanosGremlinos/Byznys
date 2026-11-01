@@ -1,10 +1,10 @@
 // Integration test: applies the migrations to an empty database and runs the seed.
 // Requires TEST_DATABASE_URL (a throwaway database); skipped otherwise.
 import { sql } from "drizzle-orm";
-import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createDb, type Database } from "@/db/client";
+import type { Database } from "@/db/client";
 import { runSeed } from "@/db/seed";
+import { setupTestDb } from "./helpers/db";
 
 const url = process.env.TEST_DATABASE_URL;
 
@@ -12,12 +12,7 @@ describe.skipIf(!url)("database schema + seed", () => {
   let db: Database;
 
   beforeAll(async () => {
-    db = createDb(url!, { max: 1 });
-    await db.execute(
-      sql`DROP SCHEMA IF EXISTS public CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE; CREATE SCHEMA public;`,
-    );
-    await migrate(db, { migrationsFolder: "drizzle" });
-    await runSeed(db);
+    db = await setupTestDb(url!);
   });
 
   afterAll(async () => {

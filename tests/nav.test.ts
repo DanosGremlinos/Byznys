@@ -12,6 +12,7 @@ describe("navigation", () => {
       "/messaging/inbox",
       "/messaging/templates",
       "/messaging/stats",
+      "/messaging/blacklist",
       "/subscriptions",
       "/overdue",
       "/settings/tiers",

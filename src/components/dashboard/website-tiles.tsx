@@ -130,7 +130,7 @@ export function WebsiteTiles({
                     </Button>
                   ) : null}
                   <Button asChild size="sm" variant="outline">
-                    <Link href={`/messaging/queue?client=${t.clientId}`}>
+                    <Link href={`/messaging/queue/new?client=${t.clientId}`}>
                       <Mail />
                       Poslat e-mail
                     </Link>

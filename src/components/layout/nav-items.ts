@@ -10,6 +10,7 @@ import {
   Repeat,
   Search,
   Settings,
+  ShieldBan,
 } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon };
@@ -30,6 +31,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/messaging/inbox", label: "Doručená pošta", icon: Inbox },
       { href: "/messaging/templates", label: "Šablony", icon: FileText },
       { href: "/messaging/stats", label: "Statistiky", icon: BarChart3 },
+      { href: "/messaging/blacklist", label: "Blacklist", icon: ShieldBan },
     ],
   },
   {

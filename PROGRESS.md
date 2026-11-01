@@ -192,5 +192,104 @@ shadcn runtime deps `radix-ui`, `class-variance-authority`, `clsx`, `tailwind-me
 3. **Live Google test:** not run from this session. Once the key is in the session environment (new session), I
    can run one real search to verify the field mapping on real data.
 
-## Phase 2 — Messaging/Offers + Inbox ⏳
+## Phase 2 — Messaging/Offers + Inbox ✅ (waiting for review)
+
+**Preview:** https://webbyznys-git-claude-busy-clarke-49tnmm-byznys1.vercel.app (same login)
+
+### Finished
+- **Offers L1 / L2 / L3** (`/messaging/queue/new`, also via "Připravit nabídku" on a lead and "Poslat e-mail" on a
+  dashboard tile):
+  - The agent fills the level's template with the lead/client data: name, concrete issues from the score factors
+    worded for the customer, preview link, package and price. With `ANTHROPIC_API_KEY` set, it also personalises
+    the text in Czech (`claude-opus-5-5`, structured output, refusal fallback); without the key the filled template
+    is used.
+  - L1: preview link + optional screenshot (embedded image).
+  - L2: final design + **contract as a PDF** from the editable template + proposed monthly budget. For a lead,
+    a client record is created first (agreed).
+  - L3: package comparison from the tier templates + the proposed package. There is no payment link (agreed).
+- **Approval queue** (`/messaging/queue`):
+  - Every outgoing e-mail lands here as `pending_approval`; you can edit the recipient, subject and body, and the
+    contract text for L2.
+  - It is sent **only** by clicking "Schválit a odeslat". `sendApprovedEmail` is the only send path in the app; it
+    is called only from that action and claims the e-mail atomically, so a double click can't send twice.
+  - Sending is refused while placeholders are unfilled (`{{…}}`).
+  - "Zamítnout" rejects the draft.
+- **Blacklist** (`/messaging/blacklist`):
+  - The send function checks the recipient at send time and **hard-blocks** it (status `blocked`); the editor also
+    warns and disables the button.
+  - Entries come from the unsubscribe link, from Mailgun events (permanent bounce, complaint, unsubscribe) and from
+    manual adds.
+  - Entries can't be removed in the UI, on purpose (unsubscribes must stick).
+- **Unsubscribe in every e-mail:**
+  - A signed HMAC token (no DB row) is filled into `{{unsubscribeUrl}}`, or appended as a footer when a template
+    has none.
+  - Every e-mail also carries `List-Unsubscribe` + `List-Unsubscribe-Post` (one-click, RFC 8058).
+  - The public page `/unsubscribe/[token]` confirms; `/api/unsubscribe/[token]` writes to the blacklist.
+- **Inbox** (`/messaging/inbox`):
+  - Conversations with replies, filters (unread, interested, question, change request, not interested) and unread
+    counts. Opening a conversation marks it read. The dashboard badge links here.
+  - Replies are classified by the agent (interested / not interested / question / change request, with confidence
+    and a reason). You can override the classification (stored as "Ručně") or re-run AI.
+  - "Připravit odpověď ke schválení" creates a reply draft in the queue, optionally drafted by AI.
+  - In dev mode you can simulate an incoming reply.
+- **Mailgun:**
+  - `MailgunEmailProvider` uses the HTTP API (EU region, `MAILGUN_TEST_MODE=1`). The default `LogEmailProvider`
+    logs and never delivers.
+  - Inbound replies arrive via a Mailgun Route to `/api/webhooks/mailgun/inbound`; events go to
+    `/api/webhooks/mailgun/events`. Both verify the Mailgun HMAC signature with a 15-minute window and are
+    idempotent via `webhook_events`.
+  - A reply is matched to its thread by In-Reply-To / References, then by the sender's address, else a new thread
+    is linked to the client/lead with that e-mail.
+- **Templates** (`/messaging/templates`): editable L1–L3 and dunning templates with a variable reference, new and
+  deletable custom templates, and an editable contract template (Markdown subset → PDF).
+- **Statistics** (`/messaging/stats`): sent / replied / reply rate / interested per level, classification
+  breakdown, unread count, outgoing e-mails by status, and the last 6 months.
+
+### Checks
+- `npm run typecheck` ✅, `npm run lint` ✅, `next build` ✅.
+- `npm test` ✅: 62 tests in 10 files. New ones cover templates and placeholders, unsubscribe tokens (incl. a
+  forgery), the footer, HTML escaping, the Mailgun signature (valid, wrong key, tampered, stale), References
+  parsing, issue wording, and the contract PDF with Czech characters.
+- DB integration tests:
+  - a draft never sends by itself; approval sends exactly once with an unsubscribe link and Message-ID;
+  - a blacklisted address (any letter case) is blocked and the provider is never called;
+  - unfilled placeholders and inbound e-mails are refused;
+  - L2 for a lead creates the client, the contract and a valid PDF attachment;
+  - inbound matching by In-Reply-To and by address, with duplicates ignored.
+- Browser check (Playwright, local DB):
+  - lead → offer → queue → edit → send ("✓ Odesláno", logged only);
+  - simulated reply → manual classification → reply draft → reject;
+  - L2 with an auto-created client, PDF preview, contract edit and send;
+  - manual blacklist add → compose warning → send disabled;
+  - templates edit, statistics, dashboard badge → inbox.
+- curl checks:
+  - unsubscribe while logged out (page, form, one-click); a forged token gets 400;
+  - signed inbound webhook → linked to the right thread and client; duplicate ignored; bad signature 401;
+  - a bounce event puts the address on the blacklist.
+
+### Decisions
+- **New dependencies (approved):** `pdf-lib` + `@pdf-lib/fontkit`; the Noto Sans fonts (SIL OFL) are in
+  `assets/fonts`. **No Mailgun SDK**: the HTTP API is called with `fetch`.
+- **Contract PDFs** are rendered on demand from the stored contract text (`/api/contracts/[id]/pdf`, admin only),
+  so they don't need Vercel Blob.
+- **Preview/screenshot:** the link is typed in when composing (or taken from the client's website); the screenshot
+  is an image URL embedded in the HTML version.
+- **Lead status** changes `new` → `contacted` when an offer is sent. Conversion to a client happens at L2 (agreed).
+- **Inbox** lists conversations that have at least one reply; other conversations open from the queue via
+  "konverzace".
+- **No schema changes** in Phase 2.
+
+### Open questions / needed from you
+1. **For real e-mail (when you're ready):**
+   - a Mailgun account, a sending domain with DNS records, and the env vars `EMAIL_PROVIDER=mailgun`,
+     `MAILGUN_API_KEY`, `MAILGUN_DOMAIN`, `MAILGUN_WEBHOOK_SIGNING_KEY`, `EMAIL_FROM`, `UNSUBSCRIBE_SECRET`,
+     `APP_URL` (production URL);
+   - a Mailgun Route forwarding replies to `https://<app>/api/webhooks/mailgun/inbound`, and event webhooks
+     (failed, complained, unsubscribed) to `/api/webhooks/mailgun/events`;
+   - your company details for the contract: `PROVIDER_NAME`, `PROVIDER_ICO`, `PROVIDER_ADDRESS`, `PROVIDER_CITY`.
+2. **Unsubscribe links on previews** point to the preview URL, which is behind Vercel login. That's fine for
+   testing (dev mode doesn't deliver), but real sending must run on production with `APP_URL` set.
+3. **AI:** drafting and classification are verified with the key missing (the fallbacks work). A live check with
+   `ANTHROPIC_API_KEY` is pending.
+
 ## Phase 3 — Subscriptions, billing, Overdue payments ⏳

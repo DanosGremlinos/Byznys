@@ -3,8 +3,8 @@
 //  - /api/auth/*      Auth.js endpoints
 //  - /api/webhooks/*  verified by provider signature (Mailgun)
 //  - /api/cron/*      verified by CRON_SECRET bearer token
-//  - /unsubscribe/*   verified by a signed token in the URL
-const PUBLIC_PREFIXES = ["/api/auth/", "/api/webhooks/", "/api/cron/", "/unsubscribe/"];
+//  - /unsubscribe/*, /api/unsubscribe/*   verified by a signed token in the URL
+const PUBLIC_PREFIXES = ["/api/auth/", "/api/webhooks/", "/api/cron/", "/unsubscribe/", "/api/unsubscribe/"];
 const PUBLIC_EXACT = new Set(["/login"]);
 
 export function isPublicPath(pathname: string): boolean {
