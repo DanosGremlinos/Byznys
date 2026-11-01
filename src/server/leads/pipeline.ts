@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { leadPhotos, leadReviews, leadSiteAnalyses, leads } from "@/db/schema";
 import { registerJobHandler, type JobContext } from "@/server/jobs/runner";
+import { persistPhoto } from "./photo-store";
 import { mapPlaceToLead, mapReviews, resolvePhotoUrl, searchPlaces } from "./places";
 import { computeScore } from "./scoring";
 import { analyzeHtml, fetchSite, runPagespeed } from "./site-analyzer";
@@ -93,7 +94,13 @@ export async function analyzeLead(leadId: string, photoNames: PipelineState["pho
   if (!lead) return { siteError: false };
 
   if (photoNames.length) {
-    const urls = await Promise.all(photoNames.map((p) => resolvePhotoUrl(p.name).catch(() => null)));
+    // Resolve Google's temporary photo URL, then copy it to our Blob storage so it stays usable.
+    const urls = await Promise.all(
+      photoNames.map(async (p, i) => {
+        const temp = await resolvePhotoUrl(p.name).catch(() => null);
+        return temp ? (await persistPhoto(temp, `leads/${leadId}/photo-${i + 1}`)).url : null;
+      }),
+    );
     const rows = photoNames
       .map((p, i) => ({ p, url: urls[i] }))
       .filter((x): x is { p: (typeof photoNames)[number]; url: string } => Boolean(x.url))

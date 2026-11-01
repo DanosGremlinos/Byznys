@@ -291,4 +291,76 @@ shadcn runtime deps `radix-ui`, `class-variance-authority`, `clsx`, `tailwind-me
 3. **AI:** drafting and classification are verified with the key missing (the fallbacks work). A live check with
    `ANTHROPIC_API_KEY` is pending.
 
-## Phase 3 — Subscriptions, billing, Overdue payments ⏳
+## Phase 3 — Subscriptions, packages, Overdue payments ✅ (waiting for review)
+
+**Preview:** https://webbyznys-git-claude-busy-clarke-49tnmm-byznys1.vercel.app (same login)
+
+### Finished
+- **Google photos copied to Vercel Blob** (owner's request): when a lead is analysed, each Places photo is
+  downloaded and stored in Blob, and the permanent URL is saved. Without `BLOB_READ_WRITE_TOKEN` the temporary
+  Google URL is kept.
+- **Package templates** (`/settings/tiers`): name, description, default monthly price, features, order and
+  active flag. Add and edit them; deactivated ones disappear from offers, existing clients keep their package.
+- **Subscriptions** (`/subscriptions`, `/subscriptions/new`, `/subscriptions/[id]`):
+  - List with filters (search, status, package) and overdue highlighting.
+  - **Upcoming payments in the next 30 days.**
+  - **New subscription:** client, existing or new website, template, then the client's own name, price and
+    features, start date and "paid until". It logs a sale and marks the lead "Klient".
+  - **Zaplaceno:** months (default 1) + amount. Moves "paid until" by whole periods (31. 1. + 1 month → 28. 2.),
+    logs the payment (revenue chart) and **immediately stops reminders and withdraws queued ones**.
+  - **Change package:** template / name / price / features, logged as an upgrade or downgrade by price with old →
+    new values.
+  - Pause / resume, cancel (with reason; also cancels reminders), and manual website suspend / reactivate; all
+    logged in the history.
+- **Overdue payments** (`/overdue`):
+  - Every active subscription past its "paid until" date, with amount, days overdue and due date.
+  - Filters (search, minimum days) and sorting (days, amount, client).
+  - The 3 reminder steps per client with status and a link to the e-mail.
+  - Actions: Zaplaceno (1 month), pause/resume reminders, suspend/reactivate website, detail.
+- **Reminder engine** (`processDunning`):
+  - The daily Vercel Cron `/api/cron/daily` (17 4 * * * UTC ≈ 5–6 am Prague) runs it as a `dunning_run`
+    background job; so does the "Zkontrolovat teď" button. The page shows the last check and its result.
+  - It starts a sequence on the first unpaid day, then on day 0 / 3 / 7 **puts the reminder into the approval
+    queue** (never sends).
+  - If several steps are due at once (missed checks), only the latest is queued and the earlier ones are marked
+    skipped.
+  - Paused sequences create nothing. Runs are closed when paid or when the subscription is no longer active.
+  - Sending or rejecting a reminder in the queue updates its step.
+  - Website suspension after day 7 stays manual (agreed).
+
+### Checks
+- `npm run typecheck` ✅, `npm run lint` ✅, `next build` ✅.
+- `npm test` ✅: 72 tests in 12 files. New ones cover date maths (month-end clamping, paid-until periods, days
+  overdue) and DB integration:
+  - idempotent on the seed;
+  - day 0/3/7 drafts in the queue, with nothing sent by the engine;
+  - an approved reminder marks its step sent;
+  - catch-up queues only the latest step;
+  - a paused run creates nothing until it's resumed;
+  - a payment stops the run and rejects the queued draft;
+  - rejection cancels the step;
+  - a downgrade is logged, and the lead is marked converted.
+- Browser check (Playwright, local DB):
+  - add a package template;
+  - subscriptions list, renewals and overdue marks;
+  - new subscription with a new website → payment for 2 months → package change → pause/resume → suspend
+    website → cancel, with the history matching;
+  - overdue list sorted by amount, "Zkontrolovat teď" → job done, pause reminders;
+  - "Zaplaceno" removes the row and stops and withdraws that client's reminders;
+  - the dashboard reflects the changes.
+
+### Decisions
+- "Zaplaceno" defaults to 1 month (editable); suspension is manual; pausing keeps already-queued reminders;
+  an unsent day-7 reminder stays in the queue (all agreed).
+- Pausing a **subscription** cancels its reminder sequences; cancelling the subscription does too.
+- **No schema changes** in Phase 3. The `dunning_run` job type, `paid_until` and the dunning tables come from the
+  Phase 0/2 schema.
+
+### Open questions / needed from you
+1. **`CRON_SECRET` in Vercel (Production).** Vercel Cron only runs on production deployments. On preview, use
+   "Zkontrolovat teď".
+2. The **keys** from earlier phases, for live verification: Google Places/PageSpeed, Anthropic, Blob store
+   (Builder uploads and permanent photos), and Mailgun for real e-mail.
+3. **Production launch:** the production branch has no tables yet, and production env vars (`AUTH_SECRET`, admin
+   login, keys) aren't set. When you want to go live, I'll prepare a checklist: migrate production, without the
+   seed.

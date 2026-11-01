@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { contracts, emailAttachments, emailThreads, emails, leads } from "@/db/schema";
+import { syncDunningStepForEmail } from "@/server/billing/dunning";
 import { renderContractPdf } from "@/server/contracts/pdf";
 import { isBlacklisted } from "./blacklist";
 import type { EmailProvider, OutgoingEmail } from "./provider";
@@ -137,6 +138,7 @@ export async function sendApprovedEmail(
         .set({ status: "contacted" })
         .where(and(eq(leads.id, thread.leadId), eq(leads.status, "new")));
     }
+    await syncDunningStepForEmail(db, emailId, "sent");
     return { ok: true, status: "sent", delivered: result.delivered };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

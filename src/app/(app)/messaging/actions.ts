@@ -17,6 +17,7 @@ import {
 import { requireAdmin } from "@/lib/auth-guard";
 import { aiConfigured } from "@/server/ai/client";
 import { draftReply } from "@/server/ai/messaging";
+import { syncDunningStepForEmail } from "@/server/billing/dunning";
 import { addToBlacklist } from "@/server/email/blacklist";
 import { classifyInboundEmail } from "@/server/email/classify";
 import { ingestInbound } from "@/server/email/inbound";
@@ -145,6 +146,7 @@ export async function rejectDraft(emailId: string) {
         inArray(emails.status, ["pending_approval", "approved", "failed", "blocked"]),
       ),
     );
+  await syncDunningStepForEmail(db, emailId, "rejected");
   refresh();
   redirect("/messaging/queue");
 }
