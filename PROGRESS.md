@@ -104,6 +104,7 @@ shadcn runtime deps `radix-ui`, `class-variance-authority`, `clsx`, `tailwind-me
 ### Answered
 - Payments: none in the app (maybe later). Invoices: none. Packages: per client, from templates. Vercel: Hobby.
 - Preview databases: all previews share the Neon dev branch; production uses main only.
+- Google Places content (reviews, photos): **store it permanently** – owner's decision (needed for building the websites), despite Google's caching terms.
 
 ## Phase 1 — Dashboard, Leads, Builder ✅ (waiting for review)
 
@@ -186,9 +187,7 @@ shadcn runtime deps `radix-ui`, `class-variance-authority`, `clsx`, `tailwind-me
    - `CRON_SECRET` for the daily cron.
 
    Until then, search, AI explanation and uploads show a clear "missing key" message.
-2. **Google Places terms:** Google's policies generally don't allow storing Places content (reviews, photos)
-   long-term, except the place ID. The spec asks to store them. Options: keep it as is (your risk), or re-fetch
-   reviews/photos when building and only cache them for a limited time. Which do you prefer?
+2. ~~Google Places terms~~ → decided: store reviews and photos permanently (owner's decision).
 3. **Live Google test:** not run from this session. Once the key is in the session environment (new session), I
    can run one real search to verify the field mapping on real data.
 
