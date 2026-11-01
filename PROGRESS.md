@@ -15,18 +15,20 @@ hash when convenient).
   `/api/cron/*` and `/unsubscribe/*`, which will verify a signature, secret or token themselves.
   `requireAdmin()` is a second check inside data access. There is no signup.
   Login also works without JS and keeps the email after a wrong password.
-- **DB schema (24 tables, all modules)** in `src/db/schema/`, migration `drizzle/0000_init.sql`:
+- **DB schema (23 tables, all modules)** in `src/db/schema/`, migrations `drizzle/0000_init.sql` and
+  `drizzle/0001_paid_until_no_invoices.sql`:
   - Leads: `jobs`, `leads`, `lead_photos`, `lead_reviews`, `lead_site_analyses`
   - Clients: `clients`, `websites`
   - Builder: `builder_projects`, `builder_assets`, `builder_prompt_versions`
   - Messaging: `email_templates`, `email_threads`, `emails`, `email_attachments`, `contract_templates`,
     `contracts`, `email_blacklist`, `webhook_events`
-  - Billing: `subscription_tiers`, `subscriptions`, `subscription_events`, `invoices`, `dunning_runs`, `dunning_steps`
+  - Subscriptions: `subscription_tiers` (templates), `subscriptions`, `subscription_events`, `dunning_runs`, `dunning_steps`
 - **Seed** (`npm run db:seed`): deterministic, realistic Czech data:
   - 46 leads (10 categories, 7 cities) with photos, reviews and site analyses
-  - 12 clients with 13 websites; 3 tiers (Základ 490 Kč, Standard 990 Kč, Premium 1 990 Kč)
-  - 12 subscriptions (with upgrades, downgrades and 1 cancellation) and about 110 monthly invoices
-  - 5 overdue invoices at different dunning stages (1 run paused, 1 site suspended, 1 run stopped by payment)
+  - 12 clients with 13 websites; 3 package templates (Základ 490 Kč, Standard 990 Kč, Premium 1 990 Kč)
+  - 12 subscriptions with per-client prices and features (discounts, extra features), upgrades, downgrades,
+    1 cancellation, and the history of recorded monthly payments
+  - 5 overdue subscriptions at different dunning stages (1 run paused, 1 site suspended, 1 run stopped by payment)
   - L1/L2/L3 and dunning templates, a contract template, about 66 emails including an approval queue,
     classified replies and unread client messages
   - Blacklist entries plus 1 blocked email, a builder project with assets, and background jobs (including a failed one)
@@ -42,13 +44,23 @@ hash when convenient).
   logout, and protection after logout.
 
 ### Decisions
-- **No payments in the app** (owner's decision). There is no PaymentProvider, no payment webhooks and no
-  provider IDs. `invoices` only track what is due: variable symbol, due date, and a payment that is
-  *recorded manually*. "Overdue" is derived (`status = 'issued' AND due_date < today` in Prague time),
-  never stored. Wherever the spec says "payment link" (L3 offer, dunning step 2), the email will contain bank
-  details (`BANK_ACCOUNT`) and the variable symbol instead.
-- **Dunning emails go through the approval queue** like every other email. Cron only creates the email
-  and marks the step `queued_for_approval`. Steps are on day 0, 3 and 7 after the due date.
+- **No payments and no invoices in the app** (owner's decision; payments may be revisited after the app is
+  finished). There is no PaymentProvider, no payment webhooks, no invoices, no bank details or payment links in
+  emails. Wherever the spec says "payment link" (L3 offer, dunning step 2), the email simply asks for payment.
+- **"Paid until" model:** each subscription has `paid_until` (the last paid day). When money arrives outside the
+  app, it is recorded by clicking "Zaplaceno", which moves `paid_until` forward and logs a `payment_received`
+  event with the amount. These events feed the revenue chart. A subscription is **overdue** when
+  `paid_until < today` (Prague time). The next payment / renewal date is `paid_until + 1 day`.
+- **Dunning** is attached to the subscription and the specific missed `paid_until` (`dunning_runs`). Day 0 is
+  the first unpaid day, with steps on day 0, 3 and 7. It stops as soon as a payment moves `paid_until` past the
+  missed date. Dunning emails go through the approval queue like every other email: cron only creates the
+  email and marks the step `queued_for_approval`.
+- **Packages vary per client:** `subscription_tiers` are templates (name, default price, features). Each
+  subscription has its own `name`, `price_halere` and `features`, prefilled from a template and freely
+  editable. `tier_id` is optional. The L3 email can still compare the templates.
+- **Vercel Hobby plan:** cron jobs run at most once a day. The daily cron will create due dunning steps and
+  act as a safety net for background jobs. Interactive jobs (lead search, site analysis) run via `after()`
+  and process themselves in chunks.
 - **Auth.js instead of Neon Auth.** Neon Auth can stay enabled in Neon; its `neon_auth` schema is not used.
 - **Email provider: Mailgun (EU region)**, approved. It isn't installed yet (Phase 2); dev uses a log-only provider.
 - **DB driver: postgres.js** (`prepare: false`, compatible with Neon's pooled endpoint). One driver for Vercel
@@ -75,29 +87,26 @@ shadcn runtime deps `radix-ui`, `class-variance-authority`, `clsx`, `tailwind-me
   `ADMIN_PASSWORD_HASH`.
 - On preview builds, `scripts/vercel-build.mjs` creates the tables, then loads the seed data **only if the
   database is empty**. Both steps are refused unless the DB host equals `PREVIEW_DB_EXPECTED_HOST`, so a preview
-  can never touch the production branch. The dev branch is verified to hold the migration and the seed (46 leads,
-  12 clients, 111 invoices, 66 emails).
+  can never touch the production branch. Verified on the dev branch after the first deploy: migration applied,
+  seed loaded (46 leads, 12 clients, 66 emails).
 - Production env has no `AUTH_SECRET` or admin variables yet, and production builds never touch the database.
 
 ### Environment notes
-- The cloud session can reach the Neon console/HTTPS API and the Vercel API, but raw Postgres TCP is not possible
-  through its proxy. Migrations and seeding therefore run in the Vercel preview build, and local tests use a local
-  PostgreSQL 16. `*.vercel.app` is not allowed, so I can't open previews from the session.
+- The cloud session can reach the Neon console/HTTPS API, the Vercel API and `*.vercel.app`, but raw Postgres
+  TCP is not possible through its proxy. Migrations and seeding therefore run in the Vercel preview build, and
+  local tests use a local PostgreSQL 16. Previews sit behind Vercel Deployment Protection; the owner chose not to
+  add an automation bypass, so the owner checks previews in their own browser.
 - shadcn components were copied from the official shadcn GitHub repo (`ui.shadcn.com` is blocked).
 
 ### Open questions
 1. **Shared DB env in Vercel:** the Neon integration points Preview at the production branch for every branch
    except this one. Should I switch the integration to automatic per-preview Neon branches, or keep the
    branch-scoped overrides for each new working branch?
-2. **Payment details in emails:** is the bank account number plus variable symbol enough, or do you also want
-   a QR payment code (QR Platba) in dunning emails? That needs a QR library, so it's a new dependency.
-3. **Invoices:** the format is `YYYY-NNNN`, the VS is `YYYYNNNN` and payment is due in 14 days. Do you issue
-   official invoices elsewhere (e.g. Fakturoid)? If so, should the app only *mirror* the number?
-4. **Tiers:** the seeded tiers are placeholders (Základ 490 Kč, Standard 990 Kč, Premium 1 990 Kč). What are
-   your real tiers and prices? They will be editable in Phase 3 either way.
-5. **Mailgun:** which sending domain and sender name? Replies need an inbound route (e.g. `reply.yourdomain.cz`).
-6. **Vercel plan** (Hobby = cron at most once a day, Pro = every minute): this affects how the background job
-   safety net and dunning cron are scheduled.
+2. **Mailgun (needed in Phase 2):** a sending domain you own (e.g. your business domain), the sender name, and a
+   subdomain for receiving replies (e.g. `reply.yourdomain.cz`).
+
+### Answered
+- Payments: none in the app (maybe later). Invoices: none. Packages: per client, from templates. Vercel: Hobby.
 
 ## Phase 1 — Dashboard, Leads, Builder ⏳ (not started; waiting for approval)
 ## Phase 2 — Messaging/Offers + Inbox ⏳

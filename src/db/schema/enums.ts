@@ -62,13 +62,10 @@ export const subscriptionEventType = pgEnum("subscription_event_type", [
   "paused",
   "resumed",
   "cancelled",
-  "renewed",
-  "invoice_issued",
   "payment_received",
   "website_suspended",
   "website_reactivated",
 ]);
-export const invoiceStatus = pgEnum("invoice_status", ["issued", "paid", "cancelled"]);
 
 export const dunningRunStatus = pgEnum("dunning_run_status", [
   "active",

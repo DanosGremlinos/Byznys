@@ -120,7 +120,7 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`
         TRUNCATE TABLE
-          dunning_steps, dunning_runs, invoices, subscription_events, subscriptions, subscription_tiers,
+          dunning_steps, dunning_runs, subscription_events, subscriptions, subscription_tiers,
           webhook_events, email_blacklist, contracts, contract_templates, email_attachments, emails,
           email_threads, email_templates, builder_prompt_versions, builder_assets, builder_projects,
           websites, clients, lead_site_analyses, lead_reviews, lead_photos, leads, jobs
@@ -486,29 +486,92 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
       siteSeeds.push({ website, clientSeed: cs, plan: "in_progress" });
     }
 
-    // ---- Subscriptions, events, invoices ---------------------------------
-    type InvoiceDraft = Omit<typeof s.invoices.$inferInsert, "number" | "variableSymbol">;
-    const invoiceDrafts: InvoiceDraft[] = [];
+    // ---- Subscriptions, events (payments are only recorded, never processed) ---
+    // Each payment covers one month. paid_until = last day of the last paid month.
+    type OverduePlan = { daysOverdue: number; runStatus: "active" | "paused" | "completed" };
+    const overduePlans: OverduePlan[] = [
+      { daysOverdue: 1, runStatus: "active" },
+      { daysOverdue: 4, runStatus: "active" },
+      { daysOverdue: 6, runStatus: "paused" },
+      { daysOverdue: 9, runStatus: "active" },
+      { daysOverdue: 20, runStatus: "completed" }, // site suspended
+    ];
+    const liveSites = siteSeeds.filter((x) => x.plan === "live");
+    const suspendedSite = siteSeeds.find((x) => x.plan === "suspended")!;
+    const overduePlanBySite = new Map<string, OverduePlan>();
+    liveSites.slice(0, 4).forEach((site, i) => overduePlanBySite.set(site.website.id, overduePlans[i]));
+    overduePlanBySite.set(suspendedSite.website.id, overduePlans[4]);
+
+    const EXTRA_FEATURES = [
+      "Správa Google Business profilu",
+      "Fotografie od profesionála 1× ročně",
+      "Napojení na rezervační systém",
+      "Měsíční příspěvek na sociální sítě",
+    ];
     const eventRows: (typeof s.subscriptionEvents.$inferInsert)[] = [];
     const subsBySite = new Map<string, typeof s.subscriptions.$inferSelect>();
 
     for (const site of siteSeeds) {
       if (site.plan === "in_progress") continue;
+      const overdue = overduePlanBySite.get(site.website.id);
       const monthsAgo = int(2, 14);
-      const startedOn = addMonthsStr(addDaysStr(TODAY, -int(0, 27)), -monthsAgo);
+      // For overdue subscriptions, align the billing day so a paid month ends exactly N days ago.
+      const startedOn = overdue
+        ? addMonthsStr(addDaysStr(TODAY, -overdue.daysOverdue + 1), -monthsAgo)
+        : addMonthsStr(addDaysStr(TODAY, -int(0, 27)), -monthsAgo);
       let tierIdx = pick([0, 0, 0, 1, 1, 1, 2]);
       const upgradeAt = tierIdx < 2 && monthsAgo > 4 && chance(0.4) ? int(2, monthsAgo - 1) : null;
       const downgradeAt =
         upgradeAt === null && tierIdx > 0 && monthsAgo > 5 && chance(0.2) ? int(3, monthsAgo - 1) : null;
-      const discount = chance(0.2) ? 0.9 : 1;
-      const priceFor = (idx: number) => Math.round((tiers[idx].monthlyPriceHalere * discount) / 1000) * 1000;
+      // Prices and features are agreed per client: some get a discount or an extra feature.
+      const discount = chance(0.25) ? pick([0.8, 0.9]) : 1;
+      const extra = chance(0.35) ? pick(EXTRA_FEATURES) : null;
+      const priceFor = (idx: number) =>
+        Math.round((tiers[idx].monthlyPriceHalere * discount + (extra ? kc(200) : 0)) / 1000) * 1000;
       const initialTier = tierIdx;
       const finalTier = upgradeAt !== null ? tierIdx + 1 : downgradeAt !== null ? tierIdx - 1 : tierIdx;
       const cancelled = site.plan === "cancelled";
       const cancelAfterMonths = cancelled ? Math.max(1, monthsAgo - 1) : null;
 
-      let nextBilling = startedOn;
-      while (nextBilling <= TODAY) nextBilling = addMonthsStr(nextBilling, 1);
+      // Paid months: every month that has started (overdue: only months that ended N days ago or earlier).
+      const lastPaidEnd = overdue ? addDaysStr(TODAY, -overdue.daysOverdue) : null;
+      let paidUntil = addDaysStr(startedOn, -1);
+      const payments: { periodStart: string; periodEnd: string; tierIdx: number }[] = [];
+      for (let m = 0; ; m++) {
+        const periodStart = addMonthsStr(startedOn, m);
+        const periodEnd = addDaysStr(addMonthsStr(startedOn, m + 1), -1);
+        if (periodStart > TODAY) break;
+        if (cancelAfterMonths !== null && m >= cancelAfterMonths) break;
+        if (lastPaidEnd !== null && periodEnd > lastPaidEnd) break;
+        if (upgradeAt !== null && m === upgradeAt) {
+          eventRows.push({
+            type: "upgraded",
+            fromTierId: tiers[tierIdx].id,
+            toTierId: tiers[tierIdx + 1].id,
+            fromPriceHalere: priceFor(tierIdx),
+            toPriceHalere: priceFor(tierIdx + 1),
+            occurredAt: strToDate(addDaysStr(periodStart, -2), 14),
+            subscriptionId: "",
+            clientId: site.clientSeed.client.id,
+          });
+          tierIdx += 1;
+        }
+        if (downgradeAt !== null && m === downgradeAt) {
+          eventRows.push({
+            type: "downgraded",
+            fromTierId: tiers[tierIdx].id,
+            toTierId: tiers[tierIdx - 1].id,
+            fromPriceHalere: priceFor(tierIdx),
+            toPriceHalere: priceFor(tierIdx - 1),
+            occurredAt: strToDate(addDaysStr(periodStart, -3), 9),
+            subscriptionId: "",
+            clientId: site.clientSeed.client.id,
+          });
+          tierIdx -= 1;
+        }
+        payments.push({ periodStart, periodEnd, tierIdx });
+        paidUntil = periodEnd;
+      }
 
       const [sub] = await tx
         .insert(s.subscriptions)
@@ -516,16 +579,19 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
           clientId: site.clientSeed.client.id,
           websiteId: site.website.id,
           tierId: tiers[finalTier].id,
-          status: cancelled ? "cancelled" : "active",
+          name: tiers[finalTier].name,
           priceHalere: priceFor(finalTier),
+          features: [...tiers[finalTier].features, ...(extra ? [extra] : [])],
+          status: cancelled ? "cancelled" : "active",
           startedOn,
-          nextBillingDate: cancelled ? null : nextBilling,
+          paidUntil,
           cancelledAt: cancelled ? strToDate(addMonthsStr(startedOn, cancelAfterMonths!)) : null,
           cancelReason: cancelled ? "Ukončení podnikání" : null,
           createdAt: strToDate(startedOn),
         })
         .returning();
       subsBySite.set(site.website.id, sub);
+      for (const e of eventRows) if (e.subscriptionId === "") e.subscriptionId = sub.id;
 
       eventRows.push({
         subscriptionId: sub.id,
@@ -537,75 +603,18 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
         note: "Nové předplatné",
         occurredAt: strToDate(startedOn, 11),
       });
-
-      // Monthly invoices from start until the current period (or cancellation).
-      for (let m = 0; ; m++) {
-        const periodStart = addMonthsStr(startedOn, m);
-        if (periodStart > TODAY) break;
-        if (cancelAfterMonths !== null && m >= cancelAfterMonths) break;
-        if (upgradeAt !== null && m === upgradeAt) {
-          eventRows.push({
-            subscriptionId: sub.id,
-            clientId: sub.clientId,
-            type: "upgraded",
-            fromTierId: tiers[tierIdx].id,
-            toTierId: tiers[tierIdx + 1].id,
-            fromPriceHalere: priceFor(tierIdx),
-            toPriceHalere: priceFor(tierIdx + 1),
-            occurredAt: strToDate(addDaysStr(periodStart, -2), 14),
-          });
-          tierIdx += 1;
-        }
-        if (downgradeAt !== null && m === downgradeAt) {
-          eventRows.push({
-            subscriptionId: sub.id,
-            clientId: sub.clientId,
-            type: "downgraded",
-            fromTierId: tiers[tierIdx].id,
-            toTierId: tiers[tierIdx - 1].id,
-            fromPriceHalere: priceFor(tierIdx),
-            toPriceHalere: priceFor(tierIdx - 1),
-            occurredAt: strToDate(addDaysStr(periodStart, -3), 9),
-          });
-          tierIdx -= 1;
-        }
-        const dueDate = addDaysStr(periodStart, 14);
-        // Past-due invoices are paid by today (overdue ones are set up explicitly below).
-        const maxOffset = dueDate < TODAY ? Math.min(16, daysBetween(periodStart, TODAY)) : 16;
-        const paidOn = addDaysStr(periodStart, int(1, maxOffset));
-        const isPaid = paidOn <= TODAY && (dueDate < TODAY || chance(0.5));
-        invoiceDrafts.push({
+      for (const p of payments) {
+        // Paid around the start of each month, never in the future.
+        const paidOn = [addDaysStr(p.periodStart, int(0, 5)), TODAY].sort()[0];
+        eventRows.push({
           subscriptionId: sub.id,
           clientId: sub.clientId,
-          amountHalere: priceFor(tierIdx),
-          periodStart,
-          periodEnd: addDaysStr(addMonthsStr(periodStart, 1), -1),
-          issuedOn: periodStart,
-          dueDate,
-          status: isPaid ? "paid" : "issued",
-          paidAt: isPaid ? strToDate(paidOn, 12) : null,
-          paidAmountHalere: isPaid ? priceFor(tierIdx) : null,
+          type: "payment_received",
+          amountHalere: priceFor(p.tierIdx),
+          paidUntil: p.periodEnd,
+          occurredAt: strToDate(paidOn, 12),
         });
-        if (m > 0) {
-          eventRows.push({
-            subscriptionId: sub.id,
-            clientId: sub.clientId,
-            type: "renewed",
-            amountHalere: priceFor(tierIdx),
-            occurredAt: strToDate(periodStart, 8),
-          });
-        }
-        if (isPaid) {
-          eventRows.push({
-            subscriptionId: sub.id,
-            clientId: sub.clientId,
-            type: "payment_received",
-            amountHalere: priceFor(tierIdx),
-            occurredAt: strToDate(paidOn, 12),
-          });
-        }
       }
-
       if (cancelled) {
         eventRows.push({
           subscriptionId: sub.id,
@@ -618,77 +627,27 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
       }
     }
 
-    // Overdue scenarios: pick active subscriptions and make their latest past-due invoice unpaid.
-    type OverduePlan = { daysOverdue: number; runStatus: "active" | "paused" | "completed" };
-    const overduePlans: OverduePlan[] = [
-      { daysOverdue: 1, runStatus: "active" },
-      { daysOverdue: 4, runStatus: "active" },
-      { daysOverdue: 6, runStatus: "paused" },
-      { daysOverdue: 9, runStatus: "active" },
-      { daysOverdue: 20, runStatus: "completed" }, // site suspended
-    ];
-    const suspendedSite = siteSeeds.find((x) => x.plan === "suspended")!;
-    const activeSubs = siteSeeds
-      .filter((x) => x.plan === "live")
-      .map((x) => subsBySite.get(x.website.id)!)
-      .filter(Boolean);
-    const overdueSubs = [...activeSubs.slice(0, 4), subsBySite.get(suspendedSite.website.id)!];
-    const overdueAssignments = new Map<InvoiceDraft, OverduePlan>();
-    overdueSubs.forEach((sub, idx) => {
-      const plan = overduePlans[idx];
-      const candidates = invoiceDrafts.filter((d) => d.subscriptionId === sub.id && d.dueDate < TODAY);
-      const target = candidates.at(-1) ?? invoiceDrafts.filter((d) => d.subscriptionId === sub.id).at(-1)!;
-      const removed = target.status === "paid";
-      target.dueDate = addDaysStr(TODAY, -plan.daysOverdue);
-      target.issuedOn = addDaysStr(target.dueDate, -14);
-      target.status = "issued";
-      target.paidAt = null;
-      target.paidAmountHalere = null;
-      if (removed) {
-        // Drop the matching payment_received event.
-        const evIdx = eventRows.findIndex(
-          (e) =>
-            e.subscriptionId === sub.id &&
-            e.type === "payment_received" &&
-            e.amountHalere === target.amountHalere,
-        );
-        if (evIdx >= 0) eventRows.splice(evIdx, 1);
-      }
-      overdueAssignments.set(target, plan);
-    });
-    // A paid-late invoice whose dunning run was stopped by the payment.
-    const paidLateSub = activeSubs[5];
-    const paidLate = invoiceDrafts
+    // A past payment that came 4 days late: its dunning run was stopped by the payment.
+    const paidLateSub = subsBySite.get(liveSites[5].website.id)!;
+    const paidLateEvent = eventRows
       .filter(
-        (d) =>
-          d.subscriptionId === paidLateSub.id && d.status === "paid" && d.dueDate < addDaysStr(TODAY, -20),
-      )
-      .at(-1);
-    if (paidLate) {
-      const originalPaidAt = paidLate.paidAt?.getTime();
-      paidLate.paidAt = strToDate(addDaysStr(paidLate.dueDate, 4), 15);
-      const ev = eventRows.find(
         (e) =>
           e.subscriptionId === paidLateSub.id &&
           e.type === "payment_received" &&
-          e.occurredAt?.getTime() === originalPaidAt,
-      );
-      if (ev) ev.occurredAt = paidLate.paidAt;
+          e.paidUntil! < addDaysStr(TODAY, -20) &&
+          addMonthsStr(addDaysStr(e.paidUntil!, 1), -1) > paidLateSub.startedOn,
+      )
+      .at(-1);
+    let paidLate: { missedPaidUntil: string; paidAt: Date; amountHalere: number } | null = null;
+    if (paidLateEvent) {
+      const missedPaidUntil = addDaysStr(addMonthsStr(addDaysStr(paidLateEvent.paidUntil!, 1), -1), -1);
+      paidLateEvent.occurredAt = strToDate(addDaysStr(missedPaidUntil, 5), 15);
+      paidLate = {
+        missedPaidUntil,
+        paidAt: paidLateEvent.occurredAt,
+        amountHalere: paidLateEvent.amountHalere!,
+      };
     }
-
-    // Number invoices chronologically.
-    invoiceDrafts.sort((a, b) => (a.issuedOn < b.issuedOn ? -1 : a.issuedOn > b.issuedOn ? 1 : 0));
-    const seqByYear = new Map<string, number>();
-    const invoiceRows = invoiceDrafts.map((d) => {
-      const year = d.issuedOn.slice(0, 4);
-      const seq = (seqByYear.get(year) ?? 0) + 1;
-      seqByYear.set(year, seq);
-      const num = `${year}-${String(seq).padStart(4, "0")}`;
-      return { ...d, number: num, variableSymbol: `${year}${String(seq).padStart(4, "0")}` };
-    });
-    const insertedInvoices = await tx.insert(s.invoices).values(invoiceRows).returning();
-    const invoiceByDraft = new Map<InvoiceDraft, typeof s.invoices.$inferSelect>();
-    invoiceDrafts.forEach((d, i) => invoiceByDraft.set(d, insertedInvoices[i]));
 
     // Suspended website event
     const suspendedSub = subsBySite.get(suspendedSite.website.id)!;
@@ -736,7 +695,7 @@ Nechcete dostávat další zprávy? Odhlásit se můžete zde: {{unsubscribeUrl}
 děkuji za odpověď. V příloze posílám finální návrh webu a smlouvu.
 
 Náhled: {{previewUrl}}
-Navrhované předplatné: {{tierName}} za {{monthlyPrice}} měsíčně (hosting, doména, údržba a úpravy).
+Navrhované předplatné: {{packageName}} za {{monthlyPrice}} měsíčně (hosting, doména, údržba a úpravy).
 
 V případě dotazů jsem k dispozici.
 
@@ -750,14 +709,14 @@ Odhlásit se: {{unsubscribeUrl}}`,
           key: "offer_l3_default",
           kind: "offer_l3",
           name: "L3 – nabídka předplatného",
-          subject: "Předplatné webu {{businessName}} – srovnání tarifů",
+          subject: "Předplatné webu {{businessName}} – srovnání balíčků",
           body: `Dobrý den{{contactGreeting}},
 
-posílám přehled tarifů, ze kterých si můžete vybrat:
+posílám přehled balíčků, ze kterých si můžete vybrat. Cenu i obsah rád upravím podle vašich potřeb:
 
 {{tierComparison}}
 
-Platbu můžete provést převodem na účet {{bankAccount}}, variabilní symbol vám pošlu s první fakturou.
+Pro vás navrhuji: {{packageName}} za {{monthlyPrice}} měsíčně.
 
 S pozdravem
 {{senderName}}
@@ -769,10 +728,10 @@ Odhlásit se: {{unsubscribeUrl}}`,
           key: "dunning_1_default",
           kind: "dunning_1",
           name: "Upomínka 1 – přátelská připomínka (den 0)",
-          subject: "Připomínka platby – faktura {{invoiceNumber}}",
+          subject: "Připomínka platby za web {{websiteDomain}}",
           body: `Dobrý den{{contactGreeting}},
 
-jen přátelsky připomínám, že faktura {{invoiceNumber}} na částku {{amount}} byla splatná {{dueDate}}. Pokud jste již platili, považujte prosím tento e-mail za bezpředmětný.
+jen přátelsky připomínám platbu {{amount}} za správu webu {{websiteDomain}}, která byla splatná {{dueDate}}. Pokud jste již platili, považujte prosím tento e-mail za bezpředmětný.
 
 S pozdravem
 {{senderName}}`,
@@ -780,16 +739,11 @@ S pozdravem
         {
           key: "dunning_2_default",
           kind: "dunning_2",
-          name: "Upomínka 2 – platební údaje (den 3)",
-          subject: "Upomínka – faktura {{invoiceNumber}} je po splatnosti",
+          name: "Upomínka 2 – připomínka (den 3)",
+          subject: "Upomínka – platba za web {{websiteDomain}} je po splatnosti",
           body: `Dobrý den{{contactGreeting}},
 
-faktura {{invoiceNumber}} na částku {{amount}} je {{daysOverdue}} dní po splatnosti.
-
-Platební údaje:
-Číslo účtu: {{bankAccount}}
-Variabilní symbol: {{variableSymbol}}
-Částka: {{amount}}
+platba {{amount}} za správu webu {{websiteDomain}} je {{daysOverdue}} dní po splatnosti (splatná {{dueDate}}).
 
 Děkuji za brzkou úhradu.
 
@@ -800,14 +754,10 @@ S pozdravem
           key: "dunning_3_default",
           kind: "dunning_3",
           name: "Upomínka 3 – poslední výzva (den 7)",
-          subject: "Poslední výzva k úhradě – faktura {{invoiceNumber}}",
+          subject: "Poslední výzva k úhradě – web {{websiteDomain}}",
           body: `Dobrý den{{contactGreeting}},
 
-faktura {{invoiceNumber}} na částku {{amount}} stále není uhrazena. Pokud platba nedorazí do 3 dnů, budu nucen web {{websiteDomain}} dočasně pozastavit.
-
-Platební údaje:
-Číslo účtu: {{bankAccount}}
-Variabilní symbol: {{variableSymbol}}
+platba {{amount}} za správu webu {{websiteDomain}} (splatná {{dueDate}}) stále nedorazila. Pokud ji neobdržím do 3 dnů, budu nucen web dočasně pozastavit.
 
 S pozdravem
 {{senderName}}`,
@@ -831,7 +781,7 @@ S pozdravem
 Poskytovatel vytvoří pro objednatele webové stránky na doméně {{domain}} a zajistí jejich provoz, hosting a údržbu.
 
 ## 2. Cena a platební podmínky
-Měsíční předplatné činí {{monthlyPrice}} (tarif {{tierName}}). Splatnost faktur je 14 dní.
+Měsíční předplatné činí {{monthlyPrice}} (balíček {{packageName}}). Platba je splatná vždy na začátku placeného období.
 
 ## 3. Doba trvání
 Smlouva se uzavírá na dobu neurčitou s výpovědní lhůtou 1 měsíc.
@@ -846,7 +796,6 @@ Poskytovatel                      Objednatel`,
     });
 
     // ---- Email threads ----------------------------------------------------
-    const emailIdsForDunning = new Map<string, string>(); // key `${invoiceId}:${step}` → email id
 
     async function thread(opts: { clientId?: string | null; leadId?: string | null; subject: string }) {
       const [t] = await tx
@@ -1015,17 +964,15 @@ Poskytovatel                      Objednatel`,
         });
       }
     }
-    await tx
-      .insert(s.emailBlacklist)
-      .values([
-        ...blacklisted.map((e) => ({
-          email: e,
-          reason: "unsubscribed" as const,
-          note: "Odhlášeno odkazem v e-mailu",
-        })),
-        { email: "info@stary-web-servis.cz", reason: "bounced", note: "Adresa neexistuje (hard bounce)" },
-        { email: "objednavky@nechcireklamu.cz", reason: "manual", note: "Výslovně požádali o nezasílání" },
-      ]);
+    await tx.insert(s.emailBlacklist).values([
+      ...blacklisted.map((e) => ({
+        email: e,
+        reason: "unsubscribed" as const,
+        note: "Odhlášeno odkazem v e-mailu",
+      })),
+      { email: "info@stary-web-servis.cz", reason: "bounced", note: "Adresa neexistuje (hard bounce)" },
+      { email: "objednavky@nechcireklamu.cz", reason: "manual", note: "Výslovně požádali o nezasílání" },
+    ]);
 
     // Converted leads: full history L1 → reply → L2 → L3 linked to the client.
     for (const cs of clientSeeds.filter((c) => c.leadId)) {
@@ -1125,34 +1072,41 @@ Poskytovatel                      Objednatel`,
     }
 
     // ---- Dunning ----------------------------------------------------------
+    // Overdue = paid_until < today. Day 0 of the sequence is the first unpaid day (paid_until + 1).
     const STEP_DAYS = [0, 3, 7] as const;
-    for (const [draft, plan] of overdueAssignments) {
-      const invoice = invoiceByDraft.get(draft)!;
-      const client = clientSeeds.find((c) => c.client.id === invoice.clientId)!.client;
-      const startDate = addDaysStr(invoice.dueDate, 1); // day 0 = first day after due date
+    const czk = (halere: number) => `${(halere / 100).toLocaleString("cs-CZ")} Kč`;
+    for (const [websiteId, plan] of overduePlanBySite) {
+      const sub = subsBySite.get(websiteId)!;
+      const site = siteSeeds.find((x) => x.website.id === websiteId)!;
+      const client = site.clientSeed.client;
+      const domain = site.website.domain ?? site.website.name;
+      const startDate = addDaysStr(sub.paidUntil, 1);
       const [run] = await tx
         .insert(s.dunningRuns)
         .values({
-          invoiceId: invoice.id,
+          subscriptionId: sub.id,
+          missedPaidUntil: sub.paidUntil,
+          amountHalere: sub.priceHalere,
           status: plan.runStatus,
           startedAt: strToDate(startDate, 8),
           pausedAt: plan.runStatus === "paused" ? daysAgo(1) : null,
           stoppedAt: plan.runStatus === "completed" ? daysAgo(2) : null,
         })
         .returning();
-      const t = await thread({ clientId: client.id, subject: `Platba faktury ${invoice.number}` });
+      const t = await thread({ clientId: client.id, subject: `Platba za web ${domain}` });
       const dayIndex = daysBetween(startDate, TODAY); // 0-based day of the run
       const dueSteps = STEP_DAYS.filter((d) => d <= dayIndex).length;
       for (let k = 0; k < 3; k++) {
         const stepNo = k + 1;
         const scheduled = addDaysStr(startDate, STEP_DAYS[k]);
         const isDue = k < dueSteps;
-        const isLastDue = k === dueSteps - 1;
+        const kind = `dunning_${stepNo}` as "dunning_1" | "dunning_2" | "dunning_3";
+        // Paused runs stop after step 1; active runs wait for approval on the latest due step.
+        const sendable = isDue && (plan.runStatus !== "paused" || k === 0);
         let status: (typeof s.dunningStepStatus.enumValues)[number] = "pending";
         let emailId: string | null = null;
-        const kind = `dunning_${stepNo}` as "dunning_1" | "dunning_2" | "dunning_3";
-        if (isDue && plan.runStatus !== "paused") {
-          const queued = isLastDue && plan.runStatus === "active";
+        if (sendable) {
+          const queued = k === dueSteps - 1 && plan.runStatus === "active";
           const at = strToDate(scheduled, 8);
           const row = await email(t.id, {
             direction: "outbound",
@@ -1160,35 +1114,15 @@ Poskytovatel                      Objednatel`,
             kind,
             templateId: tpl[kind].id,
             toAddress: client.email!,
-            subject: tpl[kind].subject.replace("{{invoiceNumber}}", invoice.number),
-            bodyText: `Dobrý den,\n\nfaktura ${invoice.number} na částku ${(invoice.amountHalere / 100).toLocaleString("cs-CZ")} Kč je po splatnosti.\nVariabilní symbol: ${invoice.variableSymbol}\n\nS pozdravem\nWebové stránky`,
+            subject: tpl[kind].subject.replace("{{websiteDomain}}", domain),
+            bodyText: `Dobrý den,\n\nplatba ${czk(sub.priceHalere)} za správu webu ${domain} byla splatná ${startDate.split("-").reverse().map(Number).join(". ")}.\n\nS pozdravem\nWebové stránky`,
             approvedAt: queued ? null : at,
             sentAt: queued ? null : at,
             createdAt: at,
           });
           emailId = row.id;
           status = queued ? "queued_for_approval" : "sent";
-        } else if (isDue && plan.runStatus === "paused") {
-          // Paused after step 1 was sent; later due steps wait.
-          if (k === 0) {
-            const at = strToDate(scheduled, 8);
-            const row = await email(t.id, {
-              direction: "outbound",
-              status: "sent",
-              kind,
-              templateId: tpl[kind].id,
-              toAddress: client.email!,
-              subject: tpl[kind].subject.replace("{{invoiceNumber}}", invoice.number),
-              bodyText: `Dobrý den,\n\npřipomínám fakturu ${invoice.number}.\n\nS pozdravem\nWebové stránky`,
-              approvedAt: at,
-              sentAt: at,
-              createdAt: at,
-            });
-            emailId = row.id;
-            status = "sent";
-          }
         }
-        if (emailId) emailIdsForDunning.set(`${invoice.id}:${stepNo}`, emailId);
         await tx.insert(s.dunningSteps).values({
           runId: run.id,
           step: stepNo,
@@ -1201,15 +1135,16 @@ Poskytovatel                      Objednatel`,
       }
     }
     if (paidLate) {
-      const invoice = invoiceByDraft.get(paidLate)!;
-      const startDate = addDaysStr(invoice.dueDate, 1);
+      const startDate = addDaysStr(paidLate.missedPaidUntil, 1);
       const [run] = await tx
         .insert(s.dunningRuns)
         .values({
-          invoiceId: invoice.id,
+          subscriptionId: paidLateSub.id,
+          missedPaidUntil: paidLate.missedPaidUntil,
+          amountHalere: paidLate.amountHalere,
           status: "stopped_paid",
           startedAt: strToDate(startDate, 8),
-          stoppedAt: invoice.paidAt,
+          stoppedAt: paidLate.paidAt,
         })
         .returning();
       await tx.insert(s.dunningSteps).values(
@@ -1218,8 +1153,8 @@ Poskytovatel                      Objednatel`,
           step: k + 1,
           dayOffset: d,
           scheduledFor: strToDate(addDaysStr(startDate, d), 8),
-          status: k === 0 ? ("sent" as const) : ("cancelled" as const),
-          processedAt: strToDate(addDaysStr(startDate, k === 0 ? 0 : 3), 8),
+          status: k <= 1 ? ("sent" as const) : ("cancelled" as const),
+          processedAt: strToDate(addDaysStr(startDate, k <= 1 ? d : 5), 8),
         })),
       );
     }
@@ -1292,8 +1227,7 @@ Poskytovatel                      Objednatel`,
         UNION ALL SELECT 'clients', count(*)::int FROM clients
         UNION ALL SELECT 'websites', count(*)::int FROM websites
         UNION ALL SELECT 'subscriptions', count(*)::int FROM subscriptions
-        UNION ALL SELECT 'invoices', count(*)::int FROM invoices
-        UNION ALL SELECT 'overdue invoices', count(*)::int FROM invoices WHERE status = 'issued' AND due_date < ${TODAY}
+        UNION ALL SELECT 'overdue subscriptions', count(*)::int FROM subscriptions WHERE status = 'active' AND paid_until < ${TODAY}
         UNION ALL SELECT 'subscription_events', count(*)::int FROM subscription_events
         UNION ALL SELECT 'emails', count(*)::int FROM emails
         UNION ALL SELECT 'emails pending approval', count(*)::int FROM emails WHERE status = 'pending_approval'

@@ -2,7 +2,7 @@ import "server-only";
 import { count } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { db } from "@/db";
-import { clients, emails, invoices, leads, subscriptions, websites } from "@/db/schema";
+import { clients, dunningRuns, emails, leads, subscriptions, websites } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth-guard";
 
 const TABLES: { label: string; table: PgTable }[] = [
@@ -10,7 +10,7 @@ const TABLES: { label: string; table: PgTable }[] = [
   { label: "Klienti", table: clients },
   { label: "Weby", table: websites },
   { label: "Předplatné", table: subscriptions },
-  { label: "Faktury", table: invoices },
+  { label: "Upomínky", table: dunningRuns },
   { label: "E-maily", table: emails },
 ];
 

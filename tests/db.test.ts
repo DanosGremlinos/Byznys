@@ -13,7 +13,9 @@ describe.skipIf(!url)("database schema + seed", () => {
 
   beforeAll(async () => {
     db = createDb(url!, { max: 1 });
-    await db.execute(sql`DROP SCHEMA IF EXISTS public CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE; CREATE SCHEMA public;`);
+    await db.execute(
+      sql`DROP SCHEMA IF EXISTS public CASCADE; DROP SCHEMA IF EXISTS drizzle CASCADE; CREATE SCHEMA public;`,
+    );
     await migrate(db, { migrationsFolder: "drizzle" });
     await runSeed(db);
   });
@@ -28,7 +30,7 @@ describe.skipIf(!url)("database schema + seed", () => {
     const row = await one<{ n: number }>(
       sql`SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema = 'public'`,
     );
-    expect(row.n).toBe(24);
+    expect(row.n).toBe(23);
   });
 
   it("seeds every module", async () => {
@@ -49,7 +51,6 @@ describe.skipIf(!url)("database schema + seed", () => {
       "subscription_tiers",
       "subscriptions",
       "subscription_events",
-      "invoices",
       "dunning_runs",
       "dunning_steps",
       "jobs",
@@ -74,20 +75,31 @@ describe.skipIf(!url)("database schema + seed", () => {
     expect(row.n).toBe(0);
   });
 
-  it("keeps dunning consistent: queued steps wait for approval, overdue invoices have runs", async () => {
+  it("keeps dunning consistent: queued steps wait for approval, overdue subscriptions have runs", async () => {
     const queued = await one<{ n: number }>(sql`
       SELECT count(*)::int AS n FROM dunning_steps s JOIN emails e ON e.id = s.email_id
       WHERE s.status = 'queued_for_approval' AND e.status <> 'pending_approval'`);
     expect(queued.n).toBe(0);
     const overdueWithoutRun = await one<{ n: number }>(sql`
-      SELECT count(*)::int AS n FROM invoices i LEFT JOIN dunning_runs r ON r.invoice_id = i.id
-      WHERE i.status = 'issued' AND i.due_date < (now() AT TIME ZONE 'Europe/Prague')::date AND r.id IS NULL`);
+      SELECT count(*)::int AS n FROM subscriptions s
+      LEFT JOIN dunning_runs r ON r.subscription_id = s.id AND r.missed_paid_until = s.paid_until
+      WHERE s.status = 'active' AND s.paid_until < (now() AT TIME ZONE 'Europe/Prague')::date AND r.id IS NULL`);
     expect(overdueWithoutRun.n).toBe(0);
   });
 
-  it("stores money as whole haléře and active subscriptions have a next billing date", async () => {
+  it("records payments as events whose paid-until matches the subscription", async () => {
     const row = await one<{ n: number }>(sql`
-      SELECT count(*)::int AS n FROM subscriptions WHERE status = 'active' AND next_billing_date IS NULL`);
+      SELECT count(*)::int AS n FROM subscriptions s
+      WHERE s.paid_until >= s.started_on AND s.paid_until <> (
+        SELECT max(e.paid_until) FROM subscription_events e
+        WHERE e.subscription_id = s.id AND e.type = 'payment_received')`);
+    expect(row.n).toBe(0);
+  });
+
+  it("gives every subscription its own name, price and features", async () => {
+    const row = await one<{ n: number }>(sql`
+      SELECT count(*)::int AS n FROM subscriptions
+      WHERE name = '' OR price_halere <= 0 OR jsonb_array_length(features) = 0`);
     expect(row.n).toBe(0);
   });
 });

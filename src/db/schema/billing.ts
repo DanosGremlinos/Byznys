@@ -13,22 +13,19 @@ import {
 } from "drizzle-orm/pg-core";
 import { clients, websites } from "./clients";
 import { createdAt, updatedAt } from "./common";
-import {
-  dunningRunStatus,
-  dunningStepStatus,
-  invoiceStatus,
-  subscriptionEventType,
-  subscriptionStatus,
-} from "./enums";
+import { dunningRunStatus, dunningStepStatus, subscriptionEventType, subscriptionStatus } from "./enums";
 import { emails } from "./messaging";
 
-// Payments are collected outside the app (handled personally). The app only tracks
-// what is due, records payments manually and runs the reminder (dunning) sequence.
+// No payments or invoices in the app: money is collected outside it (handled personally).
+// Each subscription has a "paid until" date that is moved forward manually when a payment
+// arrives. A subscription is overdue when paid_until < today (Europe/Prague).
 
+/** Package templates: starting point for a client's subscription (price and features are editable per client). */
 export const subscriptionTiers = pgTable("subscription_tiers", {
   id: uuid().primaryKey().defaultRandom(),
   name: text().notNull().unique(),
   description: text(),
+  /** Default monthly price used to prefill a new subscription. */
   monthlyPriceHalere: integer().notNull(),
   features: jsonb().$type<string[]>().notNull().default([]),
   isActive: boolean().notNull().default(true),
@@ -49,23 +46,27 @@ export const subscriptions = pgTable(
       .notNull()
       .unique()
       .references(() => websites.id, { onDelete: "restrict" }),
-    tierId: uuid()
-      .notNull()
-      .references(() => subscriptionTiers.id, { onDelete: "restrict" }),
-    status: subscriptionStatus().notNull().default("active"),
-    /** Monthly price agreed with the client (may differ from the tier list price). */
+    /** Template this subscription was created from / last changed to (optional). */
+    tierId: uuid().references(() => subscriptionTiers.id, { onDelete: "set null" }),
+    /** Package name shown to the client (prefilled from the template, editable). */
+    name: text().notNull(),
+    /** Monthly price agreed with this client. */
     priceHalere: integer().notNull(),
+    /** Features agreed with this client. */
+    features: jsonb().$type<string[]>().notNull().default([]),
+    status: subscriptionStatus().notNull().default("active"),
     startedOn: date({ mode: "string" }).notNull(),
-    nextBillingDate: date({ mode: "string" }),
+    /** Service is paid up to and including this date; the next payment is due the day after. */
+    paidUntil: date({ mode: "string" }).notNull(),
     cancelledAt: timestamp({ withTimezone: true }),
     cancelReason: text(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index().on(t.clientId), index().on(t.status, t.nextBillingDate)],
+  (t) => [index().on(t.clientId), index().on(t.status, t.paidUntil)],
 );
 
-/** History of sales and subscription changes (feeds the dashboard timeline). */
+/** History of sales, subscription changes and recorded payments (dashboard timeline + revenue chart). */
 export const subscriptionEvents = pgTable(
   "subscription_events",
   {
@@ -81,7 +82,10 @@ export const subscriptionEvents = pgTable(
     toTierId: uuid().references(() => subscriptionTiers.id, { onDelete: "set null" }),
     fromPriceHalere: integer(),
     toPriceHalere: integer(),
+    /** For payment_received: amount received. */
     amountHalere: integer(),
+    /** For payment_received: the new paid-until date after recording the payment. */
+    paidUntil: date({ mode: "string" }),
     note: text(),
     occurredAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     createdAt: createdAt(),
@@ -89,47 +93,18 @@ export const subscriptionEvents = pgTable(
   (t) => [index().on(t.occurredAt), index().on(t.subscriptionId)],
 );
 
-/**
- * A payment request for one billing period. "Overdue" is derived:
- * status = 'issued' and due_date < today (Europe/Prague).
- */
-export const invoices = pgTable(
-  "invoices",
-  {
-    id: uuid().primaryKey().defaultRandom(),
-    number: text().notNull().unique(),
-    subscriptionId: uuid()
-      .notNull()
-      .references(() => subscriptions.id, { onDelete: "restrict" }),
-    clientId: uuid()
-      .notNull()
-      .references(() => clients.id, { onDelete: "restrict" }),
-    amountHalere: integer().notNull(),
-    periodStart: date({ mode: "string" }).notNull(),
-    periodEnd: date({ mode: "string" }).notNull(),
-    issuedOn: date({ mode: "string" }).notNull(),
-    dueDate: date({ mode: "string" }).notNull(),
-    /** Variabilní symbol for bank transfer. */
-    variableSymbol: text().notNull(),
-    status: invoiceStatus().notNull().default("issued"),
-    /** Recorded manually when the payment arrives. */
-    paidAt: timestamp({ withTimezone: true }),
-    paidAmountHalere: integer(),
-    note: text(),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-  },
-  (t) => [index().on(t.status, t.dueDate), index().on(t.clientId), index().on(t.subscriptionId)],
-);
-
+/** Reminder sequence for one missed payment (one subscription, one missed paid-until date). */
 export const dunningRuns = pgTable(
   "dunning_runs",
   {
     id: uuid().primaryKey().defaultRandom(),
-    invoiceId: uuid()
+    subscriptionId: uuid()
       .notNull()
-      .unique()
-      .references(() => invoices.id, { onDelete: "cascade" }),
+      .references(() => subscriptions.id, { onDelete: "cascade" }),
+    /** The paid_until value that was missed; day 0 of the sequence is the day after it. */
+    missedPaidUntil: date({ mode: "string" }).notNull(),
+    /** Amount expected (snapshot of the monthly price). */
+    amountHalere: integer().notNull(),
     status: dunningRunStatus().notNull().default("active"),
     startedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
     pausedAt: timestamp({ withTimezone: true }),
@@ -137,7 +112,7 @@ export const dunningRuns = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index().on(t.status)],
+  (t) => [unique().on(t.subscriptionId, t.missedPaidUntil), index().on(t.status)],
 );
 
 /** Step 1 = day 0 friendly reminder, 2 = day 3 reminder, 3 = day 7 final notice. */

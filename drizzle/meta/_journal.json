@@ -8,6 +8,13 @@
       "when": 1793530722028,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793534154095,
+      "tag": "0001_paid_until_no_invoices",
+      "breakpoints": true
     }
   ]
 }

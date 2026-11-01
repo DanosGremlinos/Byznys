@@ -36,7 +36,13 @@ describe("admin credentials", () => {
 
 describe("route protection", () => {
   it("treats only login, auth, webhook, cron and unsubscribe routes as public", () => {
-    for (const p of ["/login", "/api/auth/session", "/api/webhooks/mailgun", "/api/cron/dunning", "/unsubscribe/abc"]) {
+    for (const p of [
+      "/login",
+      "/api/auth/session",
+      "/api/webhooks/mailgun",
+      "/api/cron/dunning",
+      "/unsubscribe/abc",
+    ]) {
       expect(isPublicPath(p), p).toBe(true);
     }
     for (const p of [

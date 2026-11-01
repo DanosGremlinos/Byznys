@@ -1,12 +1,5 @@
 import { relations } from "drizzle-orm";
-import {
-  dunningRuns,
-  dunningSteps,
-  invoices,
-  subscriptionEvents,
-  subscriptionTiers,
-  subscriptions,
-} from "./billing";
+import { dunningRuns, dunningSteps, subscriptionEvents, subscriptionTiers, subscriptions } from "./billing";
 import { builderAssets, builderProjects, builderPromptVersions } from "./builder";
 import { clients, websites } from "./clients";
 import { jobs } from "./jobs";
@@ -46,7 +39,6 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   lead: one(leads, { fields: [clients.leadId], references: [leads.id] }),
   websites: many(websites),
   subscriptions: many(subscriptions),
-  invoices: many(invoices),
   threads: many(emailThreads),
   contracts: many(contracts),
 }));
@@ -106,7 +98,7 @@ export const subscriptionsRelations = relations(subscriptions, ({ one, many }) =
   website: one(websites, { fields: [subscriptions.websiteId], references: [websites.id] }),
   tier: one(subscriptionTiers, { fields: [subscriptions.tierId], references: [subscriptionTiers.id] }),
   events: many(subscriptionEvents),
-  invoices: many(invoices),
+  dunningRuns: many(dunningRuns),
 }));
 export const subscriptionEventsRelations = relations(subscriptionEvents, ({ one }) => ({
   subscription: one(subscriptions, {
@@ -125,13 +117,8 @@ export const subscriptionEventsRelations = relations(subscriptionEvents, ({ one 
     relationName: "toTier",
   }),
 }));
-export const invoicesRelations = relations(invoices, ({ one }) => ({
-  subscription: one(subscriptions, { fields: [invoices.subscriptionId], references: [subscriptions.id] }),
-  client: one(clients, { fields: [invoices.clientId], references: [clients.id] }),
-  dunningRun: one(dunningRuns),
-}));
 export const dunningRunsRelations = relations(dunningRuns, ({ one, many }) => ({
-  invoice: one(invoices, { fields: [dunningRuns.invoiceId], references: [invoices.id] }),
+  subscription: one(subscriptions, { fields: [dunningRuns.subscriptionId], references: [subscriptions.id] }),
   steps: many(dunningSteps),
 }));
 export const dunningStepsRelations = relations(dunningSteps, ({ one }) => ({
