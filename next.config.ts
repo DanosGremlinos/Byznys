@@ -1,9 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
+  // The lead detail page reads the research prompt template from /prompts at runtime.
+  outputFileTracingIncludes: {
+    "/leads/*": ["./prompts/**/*"],
+  },
   turbopack: {
     rules: {
       "*.css": {

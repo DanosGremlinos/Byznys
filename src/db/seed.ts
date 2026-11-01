@@ -4,6 +4,8 @@
  */
 import { and, eq, lt, sql } from "drizzle-orm";
 import { pragueToday } from "../lib/format";
+import { buildSitePrompt } from "../server/builder/prompt";
+import { computeScore } from "../server/leads/scoring";
 import type { Database } from "./client";
 import * as s from "./schema";
 import {
@@ -335,6 +337,42 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
     await tx.insert(s.leadPhotos).values(photoRows);
     const insertedReviews = await tx.insert(s.leadReviews).values(reviewRows).returning();
     await tx.insert(s.leadSiteAnalyses).values(analysisRows);
+
+    // Scores come from the same function the app uses, so they are reproducible.
+    const analysisByLead = new Map(analysisRows.map((a) => [a.leadId, a]));
+    for (const lead of insertedLeads) {
+      const a = analysisByLead.get(lead.id);
+      const result = computeScore({
+        websiteUrl: lead.websiteUrl,
+        rating: lead.rating,
+        reviewCount: lead.reviewCount,
+        analysis: a
+          ? {
+              fetchedAt: a.fetchedAt!,
+              httpStatus: a.httpStatus ?? null,
+              isHttps: a.isHttps ?? null,
+              copyrightYear: a.copyrightYear ?? null,
+              techSignals: a.techSignals ?? null,
+              hasTitle: a.hasTitle ?? null,
+              hasMetaDescription: a.hasMetaDescription ?? null,
+              hasH1: a.hasH1 ?? null,
+              hasViewportMeta: a.hasViewportMeta ?? null,
+              pagespeedMobile: a.pagespeedMobile ?? null,
+              designIssues: a.designIssues ?? null,
+              error: null,
+            }
+          : null,
+      });
+      await tx
+        .update(s.leads)
+        .set({
+          score: result.score,
+          scoreFactors: result.factors,
+          scoreVersion: result.version,
+          scoredAt: NOW,
+        })
+        .where(eq(s.leads.id, lead.id));
+    }
 
     // ---- Tiers ------------------------------------------------------------
     const [tierBasic, tierStandard, tierPremium] = await tx
@@ -1184,7 +1222,7 @@ Poskytovatel                      Objednatel`,
         },
         structure: {
           mode: "one-page",
-          pages: ["Home"],
+          pages: ["home"],
           sections: ["hero", "services", "gallery", "reviews", "opening-hours", "map", "contact-form"],
           extras: [],
         },
@@ -1220,6 +1258,25 @@ Poskytovatel                      Objednatel`,
         isSelected: r.rating >= 4,
       })),
     ]);
+
+    // First prompt version, built by the same generator the Builder uses.
+    await tx.insert(s.builderPromptVersions).values({
+      projectId: project.id,
+      version: 1,
+      content: buildSitePrompt({
+        projectName: project.name,
+        clientInfo: project.clientInfo,
+        structure: project.structure,
+        style: project.style,
+        customInstructions: project.customInstructions,
+        photos: bPhotos.map((p, k) => ({ url: p.url, isHero: k === 0, attribution: p.attribution })),
+        logoUrl: bLead.logoUrl,
+        reviews: bReviews.filter((r) => r.rating >= 4).slice(0, 3),
+        documents: [],
+        rating: bLead.rating,
+        reviewCount: bLead.reviewCount,
+      }),
+    });
 
     // ---- Summary ----------------------------------------------------------
     const counts = await tx.execute<{ table: string; n: number }>(sql`

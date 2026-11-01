@@ -105,6 +105,92 @@ shadcn runtime deps `radix-ui`, `class-variance-authority`, `clsx`, `tailwind-me
 - Payments: none in the app (maybe later). Invoices: none. Packages: per client, from templates. Vercel: Hobby.
 - Preview databases: all previews share the Neon dev branch; production uses main only.
 
-## Phase 1 — Dashboard, Leads, Builder ⏳ (not started; waiting for approval)
+## Phase 1 — Dashboard, Leads, Builder ✅ (waiting for review)
+
+**Preview:** https://webbyznys-git-claude-busy-clarke-49tnmm-byznys1.vercel.app (same login as Phase 0)
+
+### Finished
+- **Dashboard** (`/`):
+  - Stat cards: active websites, active subscriptions, MRR, new leads (7 days), offers sent (30 days), reply rate
+    (offer threads that got a reply) and conversion rate (clients ÷ contacted leads).
+  - Website tiles: name, domain, client, package, price, next payment date (marked red when overdue), and an
+    unread-mail badge linking to `/messaging/inbox?thread=…`. Quick actions: open site, send e-mail (links to the
+    Phase 2 approval queue) and open in Builder. Filters by package, name/domain/client and status.
+  - History timeline of sales, package changes, payments and suspensions; revenue bar chart (Recharts) with a
+    monthly (12 months) / yearly toggle and a table view.
+- **Leads** (`/leads`, `/leads/[id]`):
+  - The search form (category + city) starts a background job: Google Places Text Search (New), max 60 results,
+    one request per 20 places that includes reviews and photo references. Each lead then gets up to 4 photos, a
+    fetch of its own website, PageSpeed (mobile + desktop) and a score.
+  - The job panel polls progress; the page refreshes itself when a job finishes.
+  - Stored per lead: name, address, phone, e-mail (from the site), opening hours, services/price list (price lines
+    on the site), social links, photos, reviews sorted best first, logo, brand colours (CSS/theme-color) and rating.
+  - **Opportunity score:** a pure, reproducible function (`src/server/leads/scoring.ts`). The weights and thresholds
+    live only in `src/config/scoring.ts`. Every factor is stored with weight, points and a Czech reason, and the
+    config hash is stored as `score_version`. Leads without a website score high; an unreachable site counts as no
+    website. The copyright rule uses the analysis date, not "today", so re-scoring is reproducible.
+    "Přepočítat skóre" re-scores everything from stored data.
+  - Table sorted by score (descending), fired factors shown as chips, filters (text, city, category, status,
+    minimum score), and a "Postavit web" button on every row.
+  - Detail page: all stored data, full factor table, "Vysvětlit skóre (AI)" (Anthropic, `claude-opus-5-5`, low
+    effort, server-side refusal fallback), "Znovu analyzovat web", and the research prompt from
+    `/prompts/lead-research.md`, filled with the lead's data (copy and download as .md).
+- **Builder** (`/builder`, `/builder/[id]`):
+  - Entry points: "Postavit web" from a lead creates a prefilled project with photos, logo and reviews **and
+    generates prompt v1 in the same click**; running it again opens the same project. Also "Otevřít v builderu"
+    on dashboard tiles and "Nový prázdný projekt".
+  - Editable client info, including opening hours per day (text input, validated) and the service/price list.
+  - Assets panel: select photos, drag to reorder, mark the hero photo; choose the logo (scraped or uploaded);
+    tick reviews to use; upload photos/logos/PDFs to Vercel Blob (client upload, up to 25 MB).
+  - Structure (one/multi-page, pages, sections, extras), style (5 templates, palette extracted from the logo or
+    set manually, fonts, mood, reference URLs) and custom instructions.
+  - "Vygenerovat prompt" saves the project and stores a new prompt version. The prompt is shown with a copy button
+    and a dropdown of all versions.
+- **Background jobs:** `jobs` table with a 290 s lock and about 240 s of work per run; progress is saved after every
+  lead. They start via `after()`, the status poll resumes stalled jobs, and a daily Vercel Cron
+  (`/api/cron/daily`, needs `CRON_SECRET`) is the safety net. 3 consecutive failures stop the job and show the error.
+- **Seed:** leads now carry real scores from the same function, and the seeded Builder project has prompt v1.
+
+### Checks
+- `npm run typecheck` ✅, `npm run lint` ✅, `next build` ✅.
+- `npm test` ✅: 42 tests in 8 files. They cover scoring (each factor, cap, reproducibility, version), the HTML
+  analyzer (old vs modern site, services, colours, socials, logo), the SSRF guard, Places mapping, the prompt
+  generator (contents, layout, determinism), opening-hours parsing, palette extraction, month filling, the
+  research prompt, and the DB migration + seed integration.
+- Browser check (Playwright, local DB):
+  - dashboard stats, tiles, filters, chart toggle and timeline;
+  - leads sorted by score, filters, and the search error without a key;
+  - lead detail and the AI-explain error without a key;
+  - a background job running end to end ("Znovu analyzovat web" → "Hotovo");
+  - "Postavit web" → Builder with v1 → edit → v2, and the same project reused;
+  - Builder from a dashboard tile, and a blank project with invalid-hours validation.
+
+### Decisions
+- **No per-place Places Details calls.** Text Search returns everything needed, which is cheaper.
+- **Photos:** the stored photo URL is Google's short-lived public `photoUri` (the API key is never stored).
+- **Brand colours:** from the site's CSS/theme-color during analysis. In the Builder, "Načíst z loga" extracts
+  them from the logo in the browser, via a same-origin image proxy (`/api/image-proxy`, admin-only, public URLs only).
+- **Website fetching** is limited to public http(s) addresses (SSRF guard), 12 s and 1.5 MB per page.
+- **The prompt for Claude Code is written in Czech** (site content is Czech, and you review it).
+- **"Poslat e-mail" on tiles** links to `/messaging/queue?client=…`; composing and approval come in Phase 2.
+- **The AI explanation is generated on demand and not stored** (the approved schema has no column for it).
+- **No new DB schema changes** in Phase 1. New dependencies: `@vercel/blob` and `@anthropic-ai/sdk` (both named in
+  the stack). Additional shadcn components were copied from the official repo.
+- Removed `src/server/overview.ts`, the Phase 0 "Stav databáze" placeholder that the real dashboard replaced.
+
+### Open questions / needed from you
+1. **Keys (not set yet):**
+   - `GOOGLE_PLACES_API_KEY`, `PAGESPEED_API_KEY` (can be the same key) and `ANTHROPIC_API_KEY` in Vercel
+     (Preview + Production);
+   - a Vercel Blob store connected to the project, which adds `BLOB_READ_WRITE_TOKEN`;
+   - `CRON_SECRET` for the daily cron.
+
+   Until then, search, AI explanation and uploads show a clear "missing key" message.
+2. **Google Places terms:** Google's policies generally don't allow storing Places content (reviews, photos)
+   long-term, except the place ID. The spec asks to store them. Options: keep it as is (your risk), or re-fetch
+   reviews/photos when building and only cache them for a limited time. Which do you prefer?
+3. **Live Google test:** not run from this session. Once the key is in the session environment (new session), I
+   can run one real search to verify the field mapping on real data.
+
 ## Phase 2 — Messaging/Offers + Inbox ⏳
 ## Phase 3 — Subscriptions, billing, Overdue payments ⏳

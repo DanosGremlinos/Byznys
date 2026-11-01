@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { NAV_GROUPS, isActive } from "./nav-items";
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = usePathname();
+function NavList({ pathname, onNavigate }: { pathname: string | null; onNavigate?: () => void }) {
   return (
     <nav className="grid gap-6 px-3 py-4 text-sm">
       {NAV_GROUPS.map((group, i) => (
@@ -17,7 +17,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
             </p>
           ) : null}
           {group.items.map((item) => {
-            const active = isActive(pathname, item.href);
+            const active = pathname !== null && isActive(pathname, item.href);
             return (
               <Link
                 key={item.href}
@@ -39,5 +39,18 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       ))}
     </nav>
+  );
+}
+
+function ActiveNav({ onNavigate }: { onNavigate?: () => void }) {
+  return <NavList pathname={usePathname()} onNavigate={onNavigate} />;
+}
+
+/** The current path is request data, so the highlighted nav streams in; the static list is the fallback. */
+export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <Suspense fallback={<NavList pathname={null} onNavigate={onNavigate} />}>
+      <ActiveNav onNavigate={onNavigate} />
+    </Suspense>
   );
 }
