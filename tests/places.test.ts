@@ -72,3 +72,40 @@ describe("Places mapping", () => {
     expect(r[0].publishedAt?.toISOString()).toBe("2026-05-01T10:00:00.000Z");
   });
 });
+
+describe("robustness with real-world Places data", () => {
+  it("takes the postal city from a Czech address and strips district numbers", () => {
+    expect(
+      mapPlaceToLead({ id: "a", formattedAddress: "Dittrichova 12, 120 00 Praha 2-Nové Město, Česko" }, "x")
+        .city,
+    ).toBe("Praha");
+    expect(mapPlaceToLead({ id: "a", formattedAddress: "Hlavní 1, 738 01 Frýdek-Místek" }, "x").city).toBe(
+      "Frýdek-Místek",
+    );
+    expect(
+      mapPlaceToLead({ id: "a", formattedAddress: "Vinohradská 1, 120 00 Praha 2, Česko" }, "x").city,
+    ).toBe("Praha");
+    expect(mapPlaceToLead({ id: "a", formattedAddress: "Masarykova 12, 602 00 Brno" }, "x").city).toBe(
+      "Brno",
+    );
+  });
+
+  it("does not crash on address components without types", () => {
+    const place = {
+      id: "b",
+      formattedAddress: "Někde bez PSČ",
+      addressComponents: [
+        { longText: "?" } as never,
+        { longText: "Hlavní město Praha", types: ["administrative_area_level_1"] },
+      ],
+    };
+    expect(mapPlaceToLead(place, "x").city).toBe("Praha");
+  });
+
+  it("skips incomplete opening-hour periods", () => {
+    const h = mapOpeningHours({
+      periods: [{ open: { day: 2, hour: 9 } }, { open: undefined as never }, { open: { day: 9, hour: 1 } }],
+    });
+    expect(h?.tue).toEqual([{ open: "09:00", close: "24:00" }]);
+  });
+});

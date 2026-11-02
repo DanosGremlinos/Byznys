@@ -123,20 +123,32 @@ export function mapOpeningHours(p: PlacesPlace["regularOpeningHours"]): OpeningH
   if (!p?.periods?.length) return null;
   const out: OpeningHours = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [], sun: [] };
   for (const period of p.periods) {
+    const day = period.open ? DAYS[period.open.day] : undefined;
+    if (!day || typeof period.open.hour !== "number") continue; // incomplete period from the API
     // A period without close means "open 24 hours".
-    const close = period.close ? hm(period.close.hour, period.close.minute) : "24:00";
-    out[DAYS[period.open.day]]!.push({ open: hm(period.open.hour, period.open.minute), close });
+    const close =
+      period.close && typeof period.close.hour === "number"
+        ? hm(period.close.hour, period.close.minute)
+        : "24:00";
+    out[day]!.push({ open: hm(period.open.hour, period.open.minute), close });
   }
   return out;
 }
 
+/**
+ * City of a place: the locality component when present; otherwise the postal city from the Czech
+ * formatted address with district numbers removed ("110 00 Praha 2-Nové Město" → "Praha");
+ * otherwise the administrative area. Components may lack a `types` list.
+ */
 export function cityOf(place: PlacesPlace): string | null {
   const comps = place.addressComponents ?? [];
-  return (
-    comps.find((c) => c.types.includes("locality"))?.longText ??
-    comps.find((c) => c.types.includes("administrative_area_level_2"))?.longText ??
-    null
-  );
+  const byType = (t: string) => comps.find((c) => Array.isArray(c.types) && c.types.includes(t))?.longText;
+  const locality = byType("locality") ?? byType("postal_town");
+  if (locality) return locality;
+  const postal = place.formattedAddress?.match(/\b\d{3}\s?\d{2}\s+([^,\d][^,]*)/)?.[1]?.trim();
+  if (postal) return postal.replace(/\s+\d+(?:\s*-.*)?$/, "");
+  const area = byType("administrative_area_level_2") ?? byType("administrative_area_level_1");
+  return area ? area.replace(/^Hlavní město\s+/i, "") : null;
 }
 
 /** Maps a Places result to lead columns (without photos, which need a separate request). */

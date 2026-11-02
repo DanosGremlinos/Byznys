@@ -43,43 +43,51 @@ async function searchStage(ctx: JobContext, s: PipelineState) {
   await ctx.save(s, { done: 0, total: 0, message: `Hledám „${category}“ v lokalitě ${city}…` });
   const places = await searchPlaces(`${category} ${city}`);
   s.found = places.length;
+  let skipped = 0;
   for (const place of places) {
-    const data = mapPlaceToLead(place, category);
-    const [row] = await db
-      .insert(leads)
-      .values({ ...data, searchJobId: ctx.job.id })
-      .onConflictDoUpdate({
-        target: leads.placeId,
-        // Refresh Google data but keep pipeline status, notes and anything found on their website.
-        set: {
-          name: data.name,
-          address: data.address,
-          city: data.city,
-          lat: data.lat,
-          lng: data.lng,
-          phone: sql`coalesce(${leads.phone}, excluded.phone)`,
-          websiteUrl: data.websiteUrl,
-          googleMapsUrl: data.googleMapsUrl,
-          openingHours: data.openingHours,
-          rating: data.rating,
-          reviewCount: data.reviewCount,
-        },
-      })
-      .returning({ id: leads.id, inserted: sql<boolean>`(xmax = 0)` });
-    if (row.inserted) s.newLeads++;
-    const reviews = mapReviews(place);
-    if (reviews.length) {
-      await db.delete(leadReviews).where(eq(leadReviews.leadId, row.id));
-      await db.insert(leadReviews).values(reviews.map((r) => ({ ...r, leadId: row.id })));
+    try {
+      const data = mapPlaceToLead(place, category);
+      const [row] = await db
+        .insert(leads)
+        .values({ ...data, searchJobId: ctx.job.id })
+        .onConflictDoUpdate({
+          target: leads.placeId,
+          // Refresh Google data but keep pipeline status, notes and anything found on their website.
+          set: {
+            name: data.name,
+            address: data.address,
+            city: data.city,
+            lat: data.lat,
+            lng: data.lng,
+            phone: sql`coalesce(${leads.phone}, excluded.phone)`,
+            websiteUrl: data.websiteUrl,
+            googleMapsUrl: data.googleMapsUrl,
+            openingHours: data.openingHours,
+            rating: data.rating,
+            reviewCount: data.reviewCount,
+          },
+        })
+        .returning({ id: leads.id, inserted: sql<boolean>`(xmax = 0)` });
+      if (row.inserted) s.newLeads++;
+      const reviews = mapReviews(place);
+      if (reviews.length) {
+        await db.delete(leadReviews).where(eq(leadReviews.leadId, row.id));
+        await db.insert(leadReviews).values(reviews.map((r) => ({ ...r, leadId: row.id })));
+      }
+      s.photoNames[row.id] = (place.photos ?? []).slice(0, PHOTOS_PER_LEAD).map((p) => ({
+        name: p.name,
+        attribution: p.authorAttributions?.[0]?.displayName,
+        width: p.widthPx,
+        height: p.heightPx,
+      }));
+      s.leadIds.push(row.id);
+    } catch (err) {
+      // One malformed place must not stop the whole search.
+      skipped++;
+      console.error(`[lead_search] skipped place ${place.id}: ${err instanceof Error ? err.message : err}`);
     }
-    s.photoNames[row.id] = (place.photos ?? []).slice(0, PHOTOS_PER_LEAD).map((p) => ({
-      name: p.name,
-      attribution: p.authorAttributions?.[0]?.displayName,
-      width: p.widthPx,
-      height: p.heightPx,
-    }));
-    s.leadIds.push(row.id);
   }
+  if (skipped) s.found -= skipped;
   s.stage = "analyze";
   await ctx.save(s, {
     done: 0,
