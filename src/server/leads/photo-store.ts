@@ -1,5 +1,6 @@
 import "server-only";
 import { put } from "@vercel/blob";
+import { blobEnabled } from "@/lib/blob-config";
 
 const EXT: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -16,7 +17,7 @@ export async function persistPhoto(
   sourceUrl: string,
   pathPrefix: string,
 ): Promise<{ url: string; persisted: boolean }> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) return { url: sourceUrl, persisted: false };
+  if (!blobEnabled()) return { url: sourceUrl, persisted: false };
   try {
     const res = await fetch(sourceUrl, { signal: AbortSignal.timeout(20_000) });
     const type = (res.headers.get("content-type") ?? "").split(";")[0];

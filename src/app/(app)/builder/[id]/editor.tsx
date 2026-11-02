@@ -1,6 +1,6 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
+import { upload, uploadPresigned } from "@vercel/blob/client";
 import { GripVertical, Loader2, Palette, Plus, Save, Sparkles, Star, Trash2, Upload, X } from "lucide-react";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { CopyButton } from "@/components/common/copy-button";
@@ -86,7 +86,14 @@ function rowToService(r: ServiceRow): ServiceItem | null {
 const toggle = (list: string[], key: string) =>
   list.includes(key) ? list.filter((k) => k !== key) : [...list, key];
 
-export function BuilderEditor({ project, blobEnabled }: { project: EditorProject; blobEnabled: boolean }) {
+export function BuilderEditor({
+  project,
+  blobMode,
+}: {
+  project: EditorProject;
+  blobMode: "token" | "store" | "off";
+}) {
+  const blobEnabled = blobMode !== "off";
   const [name, setName] = useState(project.name);
   const [info, setInfo] = useState<BuilderClientInfo>(project.clientInfo);
   const [hours, setHours] = useState<Record<Weekday, string>>(
@@ -195,7 +202,8 @@ export function BuilderEditor({ project, blobEnabled }: { project: EditorProject
     setMessage(null);
     try {
       for (const file of Array.from(files)) {
-        const blob = await upload(`builder/${project.id}/${file.name}`, file, {
+        const send = blobMode === "store" ? uploadPresigned : upload;
+        const blob = await send(`builder/${project.id}/${file.name}`, file, {
           access: "public",
           handleUploadUrl: "/api/builder/upload",
         });
@@ -358,8 +366,8 @@ export function BuilderEditor({ project, blobEnabled }: { project: EditorProject
           <CardContent className="grid gap-6">
             {!blobEnabled ? (
               <p className="rounded-md bg-amber-50 p-2 text-sm text-amber-800">
-                Nahrávání souborů vyžaduje Vercel Blob (BLOB_READ_WRITE_TOKEN). Stažené fotky a recenze
-                fungují i bez něj.
+                Nahrávání souborů vyžaduje připojené úložiště Vercel Blob. Stažené fotky a recenze fungují i
+                bez něj.
               </p>
             ) : null}
 

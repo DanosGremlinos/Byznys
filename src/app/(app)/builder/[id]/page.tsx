@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { blobMode } from "@/lib/blob-config";
 import { getProjectForEditor } from "@/server/builder/projects";
 import { BuilderEditor, type EditorProject } from "./editor";
 
@@ -77,7 +78,7 @@ async function Project({ params }: Pick<PageProps<"/builder/[id]">, "params">) {
           {!project.lead && !project.website ? "Prázdný projekt" : null}
         </p>
       </div>
-      <BuilderEditor project={editorProject} blobEnabled={Boolean(process.env.BLOB_READ_WRITE_TOKEN)} />
+      <BuilderEditor project={editorProject} blobMode={blobMode()} />
     </>
   );
 }

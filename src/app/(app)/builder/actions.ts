@@ -9,6 +9,7 @@ import { BUILDER_TEMPLATES } from "@/config/builder";
 import { db } from "@/db";
 import { builderAssets, builderProjects } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth-guard";
+import { blobEnabled } from "@/lib/blob-config";
 import {
   createBlankProject,
   createProjectFromWebsite,
@@ -165,7 +166,7 @@ export async function deleteUploadedAsset(projectId: string, assetId: string) {
     where: and(eq(builderAssets.id, assetId), eq(builderAssets.projectId, projectId)),
   });
   if (!asset || asset.source !== "upload") return;
-  if (asset.url && process.env.BLOB_READ_WRITE_TOKEN) await del(asset.url).catch(() => {});
+  if (asset.url && blobEnabled()) await del(asset.url).catch(() => {});
   await db.delete(builderAssets).where(eq(builderAssets.id, assetId));
   refresh();
 }
