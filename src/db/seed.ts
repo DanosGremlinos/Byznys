@@ -3,7 +3,9 @@
  * data. Development / preview databases only. CLI entry point: ./seed-cli.ts
  */
 import { and, eq, lt, sql } from "drizzle-orm";
+import { BUDGET_TEMPLATE } from "../config/budget-template";
 import { pragueToday } from "../lib/format";
+import { calculatePackages } from "../lib/package-calculator";
 import { buildSitePrompt } from "../server/builder/prompt";
 import { computeScore } from "../server/leads/scoring";
 import type { Database } from "./client";
@@ -408,6 +410,9 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
             "Neomezeně podstránek",
             "Hosting a doména",
             "SSL certifikát",
+            "Galerie a ceník",
+            "Kontaktní formulář",
+            "Základní SEO",
             "Rezervační systém",
             "Vícejazyčná verze",
             "Neomezené úpravy",
@@ -702,6 +707,7 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
     const templates = await tx
       .insert(s.emailTemplates)
       .values([
+        BUDGET_TEMPLATE,
         {
           key: "offer_l1_default",
           kind: "offer_l1",
@@ -1277,6 +1283,88 @@ Poskytovatel                      Objednatel`,
         reviewCount: bLead.reviewCount,
       }),
     });
+
+    // ---- Pipeline demo: a job without a package yet ------------------------
+    // L1 → L2 (job created) → budget question → client answered "about 1 000 Kč" → packages calculated.
+    // The next step for the owner is the L3 email with these packages.
+    {
+      const [client] = await tx
+        .insert(s.clients)
+        .values({
+          businessName: "Cukrárna U Zlaté lžičky",
+          contactPerson: "Jana Malá",
+          email: "info@zlata-lzicka.cz",
+          phone: "+420 604 112 233",
+          address: "Masarykovo náměstí 12, 586 01 Jihlava",
+          city: "Jihlava",
+          createdAt: daysAgo(12),
+        })
+        .returning();
+      const [website] = await tx
+        .insert(s.websites)
+        .values({
+          clientId: client.id,
+          name: client.businessName,
+          domain: "zlata-lzicka.cz",
+          status: "in_progress",
+          previewUrl: "https://zlata-lzicka.vercel.app",
+          createdAt: daysAgo(12),
+        })
+        .returning();
+      const t = await thread({ clientId: client.id, subject: `Návrh nového webu pro ${client.businessName}` });
+      const sent = (kind: "offer_l1" | "offer_l2" | "offer_budget", days: number, subject: string, body: string) => {
+        const at = daysAgo(days);
+        return email(t.id, {
+          direction: "outbound",
+          status: "sent",
+          kind,
+          templateId: tpl[kind]?.id ?? null,
+          toAddress: client.email!,
+          subject,
+          bodyText: body,
+          approvedAt: at,
+          sentAt: at,
+          createdAt: at,
+        });
+      };
+      await sent("offer_l1", 12, t.subject, l1Body(client.businessName));
+      await sent(
+        "offer_l2",
+        8,
+        `Finální návrh webu a smlouva – ${client.businessName}`,
+        "Dobrý den,\n\nv příloze posílám finální návrh webu a smlouvu.\n\nS pozdravem\nWebové stránky",
+      );
+      await sent(
+        "offer_budget",
+        3,
+        `Správa webu ${client.businessName} – jaký měsíční rozpočet vám vyhovuje?`,
+        "Dobrý den,\n\nkolik byste byli ochotni měsíčně investovat do správy webu?\n\nS pozdravem\nWebové stránky",
+      );
+      const r = daysAgo(2);
+      await email(t.id, {
+        direction: "inbound",
+        status: "received",
+        fromAddress: client.email!,
+        toAddress: SENDER_ADDRESS,
+        subject: `Re: Správa webu ${client.businessName} – jaký měsíční rozpočet vám vyhovuje?`,
+        bodyText: "Dobrý den, představovali bychom si zhruba 1 000 Kč měsíčně. Jana Malá",
+        classification: "interested",
+        classificationSource: "ai",
+        classificationConfidence: 0.88,
+        receivedAt: r,
+        createdAt: r,
+      });
+      const calc = calculatePackages(100_000, tiers);
+      await tx.insert(s.packageOffers).values({
+        clientId: client.id,
+        websiteId: website.id,
+        budgetHalere: calc.budgetHalere,
+        packages: calc.packages,
+        note: "Klient odepsal „zhruba 1 000 Kč měsíčně“.",
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+      });
+    }
 
     // ---- Summary ----------------------------------------------------------
     const counts = await tx.execute<{ table: string; n: number }>(sql`

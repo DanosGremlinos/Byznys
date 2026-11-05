@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Hammer, Mail } from "lucide-react";
+import { Briefcase, Calculator, ExternalLink, Hammer, Mail, Plus } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { formatCzk, formatDate } from "@/lib/format";
+import { JOB_GROUP_LABELS, JOB_STAGE_TONE, type JobStageGroup } from "@/lib/job-stage";
 import { WEBSITE_STATUS_LABELS } from "@/lib/status-labels";
 import { cn } from "@/lib/utils";
 import type { WebsiteTile } from "@/server/dashboard";
@@ -24,6 +25,7 @@ export function WebsiteTiles({
   const [q, setQ] = useState("");
   const [tier, setTier] = useState("");
   const [status, setStatus] = useState("");
+  const [group, setGroup] = useState<JobStageGroup | "">("");
   const tiers = useMemo(
     () =>
       [
@@ -37,18 +39,31 @@ export function WebsiteTiles({
       return false;
     if (tier && (t.subscription?.tierName ?? t.subscription?.name) !== tier) return false;
     if (status && t.status !== status) return false;
+    if (group && t.stage.group !== group) return false;
     return true;
   });
 
   return (
     <div className="grid gap-4">
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <Input
           placeholder="Hledat web, doménu nebo klienta"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           aria-label="Hledat"
         />
+        <NativeSelect
+          value={group}
+          onChange={(e) => setGroup(e.target.value as JobStageGroup | "")}
+          aria-label="Zakázky"
+        >
+          <option value="">Všechny zakázky</option>
+          {Object.entries(JOB_GROUP_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v} ({tiles.filter((t) => t.stage.group === k).length})
+            </option>
+          ))}
+        </NativeSelect>
         <NativeSelect value={tier} onChange={(e) => setTier(e.target.value)} aria-label="Tarif">
           <option value="">Všechny tarify</option>
           {tiers.map((t) => (
@@ -67,19 +82,31 @@ export function WebsiteTiles({
       {shown.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">Žádný web neodpovídá filtru.</p>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {shown.map((t) => {
             const url = t.liveUrl ?? t.previewUrl;
             const overdue = t.subscription?.status === "active" && t.subscription.paidUntil < today;
             return (
-              <div key={t.id} className="grid gap-3 rounded-xl border bg-card p-4 shadow-sm">
+              <div key={t.id} className="grid min-w-0 gap-3 rounded-xl border bg-card p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="truncate font-semibold">{t.name}</h3>
+                    <h3 className="truncate font-semibold">
+                      <Link href={`/websites/${t.id}`} className="hover:underline">
+                        {t.name}
+                      </Link>
+                    </h3>
                     <p className="truncate text-sm text-muted-foreground">{t.domain ?? "bez domény"}</p>
                     <p className="truncate text-xs text-muted-foreground">{t.clientName}</p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
+                        JOB_STAGE_TONE[t.stage.key],
+                      )}
+                    >
+                      {t.stage.label}
+                    </span>
                     <Badge variant={t.status === "live" ? "secondary" : "outline"}>
                       {WEBSITE_STATUS_LABELS[t.status]}
                     </Badge>
@@ -117,10 +144,37 @@ export function WebsiteTiles({
                       </dd>
                     </dl>
                   ) : (
-                    <p className="text-muted-foreground">Bez předplatného</p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-muted-foreground">Zatím bez balíčku</span>
+                      {t.stage.group === "open" ? (
+                        t.hasPackageOffer ? (
+                          <Link
+                            href={`/subscriptions/new?client=${t.clientId}&website=${t.id}`}
+                            className="inline-flex items-center gap-1 text-xs font-medium underline"
+                          >
+                            <Plus className="size-3" />
+                            Založit předplatné
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`/settings/tiers?client=${t.clientId}&website=${t.id}`}
+                            className="inline-flex items-center gap-1 text-xs font-medium underline"
+                          >
+                            <Calculator className="size-3" />
+                            Spočítat balíčky
+                          </Link>
+                        )
+                      ) : null}
+                    </div>
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <Button asChild size="sm">
+                    <Link href={`/websites/${t.id}`}>
+                      <Briefcase />
+                      Detail zakázky
+                    </Link>
+                  </Button>
                   {url ? (
                     <Button asChild size="sm" variant="outline">
                       <a href={url} target="_blank" rel="noreferrer">

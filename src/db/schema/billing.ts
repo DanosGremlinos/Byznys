@@ -134,3 +134,40 @@ export const dunningSteps = pgTable(
   },
   (t) => [unique().on(t.runId, t.step), index().on(t.status, t.scheduledFor)],
 );
+
+/** One package of a calculated offer (snapshot; templates may change later). */
+export type OfferedPackageJson = {
+  tierId: string | null;
+  name: string;
+  priceHalere: number;
+  features: string[];
+  recommended: boolean;
+};
+
+/**
+ * Three packages calculated from the client's stated monthly budget ("popcorn" pricing), attached to
+ * the client and the job (website). Used for the L3 email and to prefill the subscription.
+ */
+export const packageOffers = pgTable(
+  "package_offers",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    clientId: uuid()
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    websiteId: uuid().references(() => websites.id, { onDelete: "set null" }),
+    /** What the client said they would pay per month. */
+    budgetHalere: integer().notNull(),
+    packages: jsonb().$type<OfferedPackageJson[]>().notNull(),
+    note: text(),
+    /** The L3 email that offered these packages (latest). */
+    emailId: uuid().references(() => emails.id, { onDelete: "set null" }),
+    /** Subscription created from one of the packages. */
+    subscriptionId: uuid().references(() => subscriptions.id, { onDelete: "set null" }),
+    /** Index into `packages` of the package the client took. */
+    chosenIndex: smallint(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index().on(t.clientId), index().on(t.websiteId)],
+);

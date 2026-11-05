@@ -1,6 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,8 @@ type Props = {
   leads: (Option & { status: string; score: number | null; city: string | null })[];
   clients: (Option & { previewUrl: string | null })[];
   tiers: { id: string; name: string; monthlyPriceHalere: number }[];
+  packageOffers: { id: string; clientId: string; label: string }[];
+  initialOfferId: string;
   initialRecipient: string;
   aiEnabled: boolean;
 };
@@ -26,19 +29,35 @@ const LEVELS = [
   {
     key: "offer_l2",
     title: "L2 – návrh + smlouva",
-    text: "Finální návrh, smlouva jako PDF ze šablony a navržený měsíční rozpočet.",
+    text: "Finální návrh, smlouva jako PDF ze šablony a navržený měsíční rozpočet. Založí zakázku.",
+  },
+  {
+    key: "offer_budget",
+    title: "Dotaz na rozpočet",
+    text: "Zeptá se klienta, kolik je ochoten měsíčně platit za správu. Z odpovědi pak kalkulačka v Tarifech složí 3 balíčky.",
   },
   {
     key: "offer_l3",
     title: "L3 – předplatné",
-    text: "Nabídka předplatného se srovnáním balíčků (bez platebního odkazu).",
+    text: "Nabídka předplatného se srovnáním 3 balíčků – ideálně z kalkulačky (bez platebního odkazu).",
   },
 ] as const;
 
-export function ComposeForm({ leads, clients, tiers, initialRecipient, aiEnabled }: Props) {
+export function ComposeForm({
+  leads,
+  clients,
+  tiers,
+  packageOffers,
+  initialOfferId,
+  initialRecipient,
+  aiEnabled,
+}: Props) {
   const [state, action, pending] = useActionState<ActionState, FormData>(composeOffer, {});
   const [recipient, setRecipient] = useState(initialRecipient);
-  const [level, setLevel] = useState<(typeof LEVELS)[number]["key"]>("offer_l1");
+  const [level, setLevel] = useState<(typeof LEVELS)[number]["key"]>(initialOfferId ? "offer_l3" : "offer_l1");
+  const clientOffers = packageOffers.filter((o) => `client:${o.clientId}` === recipient);
+  const [offerId, setOfferId] = useState(initialOfferId);
+  const effectiveOffer = clientOffers.some((o) => o.id === offerId) ? offerId : (clientOffers[0]?.id ?? "");
   const [tierId, setTierId] = useState(tiers[1]?.id ?? tiers[0]?.id ?? "");
   const tier = tiers.find((t) => t.id === tierId);
   const client = recipient.startsWith("client:")
@@ -50,8 +69,8 @@ export function ComposeForm({ leads, clients, tiers, initialRecipient, aiEnabled
   ].find((x) => x.key === recipient);
 
   return (
-    <form action={action} className="grid max-w-3xl gap-6">
-      <div className="grid gap-1.5">
+    <form action={action} className="grid max-w-3xl grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-1.5">
         <Label htmlFor="recipient">Adresát</Label>
         <NativeSelect
           id="recipient"
@@ -86,7 +105,7 @@ export function ComposeForm({ leads, clients, tiers, initialRecipient, aiEnabled
 
       <fieldset className="grid gap-2">
         <legend className="mb-1 text-sm font-medium">Úroveň nabídky</legend>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {LEVELS.map((l) => (
             <label
               key={l.key}
@@ -108,7 +127,7 @@ export function ComposeForm({ leads, clients, tiers, initialRecipient, aiEnabled
       </fieldset>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="grid gap-1.5">
+        <div className="grid grid-cols-1 gap-1.5">
           <Label htmlFor="previewUrl">Odkaz na náhled návrhu</Label>
           <Input
             id="previewUrl"
@@ -119,15 +138,43 @@ export function ComposeForm({ leads, clients, tiers, initialRecipient, aiEnabled
             key={client?.id ?? "none"}
           />
         </div>
-        <div className="grid gap-1.5">
+        <div className="grid grid-cols-1 gap-1.5">
           <Label htmlFor="screenshotUrl">Screenshot návrhu (URL obrázku, volitelné)</Label>
           <Input id="screenshotUrl" name="screenshotUrl" type="url" placeholder="https://…/nahled.png" />
         </div>
       </div>
 
-      {level !== "offer_l1" ? (
+      {level === "offer_l3" ? (
+        <div className="grid grid-cols-1 gap-1.5">
+          <Label htmlFor="packageOfferId">Balíčky z kalkulačky</Label>
+          <NativeSelect
+            id="packageOfferId"
+            name="packageOfferId"
+            value={effectiveOffer}
+            onChange={(e) => setOfferId(e.target.value)}
+          >
+            {clientOffers.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+            <option value="">Obecné šablony (bez kalkulačky)</option>
+          </NativeSelect>
+          {client && !clientOffers.length ? (
+            <p className="text-xs text-muted-foreground">
+              Pro tohoto klienta zatím nejsou uložené balíčky –{" "}
+              <Link className="underline" href={`/settings/tiers?client=${client.id}`}>
+                spočítat v kalkulačce
+              </Link>
+              .
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {level === "offer_l2" || (level === "offer_l3" && !effectiveOffer) ? (
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-1.5">
+          <div className="grid grid-cols-1 gap-1.5">
             <Label htmlFor="tierId">Navržený balíček (šablona)</Label>
             <NativeSelect
               id="tierId"
@@ -142,7 +189,7 @@ export function ComposeForm({ leads, clients, tiers, initialRecipient, aiEnabled
               ))}
             </NativeSelect>
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid grid-cols-1 gap-1.5">
             <Label htmlFor="price">Měsíční cena pro tohoto klienta (Kč)</Label>
             <Input
               id="price"

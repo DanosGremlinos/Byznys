@@ -15,6 +15,7 @@ import {
   createProjectFromWebsite,
   generatePromptVersion,
 } from "@/server/builder/projects";
+import { createJobFromProject } from "@/server/websites/jobs";
 
 const opt = z.string().trim().max(2000).optional();
 const hex = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
@@ -125,6 +126,21 @@ export async function saveAndGeneratePrompt(projectId: string, payload: unknown)
 export async function newBlankProject() {
   await requireAdmin();
   redirect(`/builder/${await createBlankProject()}`);
+}
+
+/** "Založit zakázku": creates the client and the job (website) for this project and opens the job. */
+export async function createJobAction(projectId: string) {
+  await requireAdmin();
+  let websiteId: string;
+  try {
+    ({
+      website: { id: websiteId },
+    } = await createJobFromProject(db, projectId));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Zakázku se nepodařilo založit.";
+    redirect(`/builder/${projectId}?jobError=${encodeURIComponent(msg)}`);
+  }
+  redirect(`/websites/${websiteId}`);
 }
 
 export async function openWebsiteInBuilder(websiteId: string) {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Calculator } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
@@ -9,6 +10,7 @@ import {
   KIND_LABELS,
 } from "@/components/messaging/labels";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/format";
@@ -126,6 +128,16 @@ async function Inbox({ searchParams }: Pick<PageProps<"/messaging/inbox">, "sear
                     </>
                   ) : null}
                 </p>
+                {thread.client && thread.emails.some((e) => e.kind === "offer_budget") ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={`/settings/tiers?client=${thread.client.id}`}>
+                        <Calculator />
+                        Spočítat balíčky z odpovědi
+                      </Link>
+                    </Button>
+                  </div>
+                ) : null}
               </div>
               <ol className="grid gap-3">
                 {thread.emails.map((e) => (

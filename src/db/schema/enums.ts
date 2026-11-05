@@ -19,6 +19,7 @@ export const assetSource = pgEnum("asset_source", ["scraped", "upload"]);
 export const emailKind = pgEnum("email_kind", [
   "offer_l1",
   "offer_l2",
+  "offer_budget",
   "offer_l3",
   "dunning_1",
   "dunning_2",

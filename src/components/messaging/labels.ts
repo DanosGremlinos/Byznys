@@ -27,6 +27,7 @@ export const CLASSIFICATION_TONE: Record<string, string> = {
 export const KIND_LABELS: Record<string, string> = {
   offer_l1: "L1",
   offer_l2: "L2",
+  offer_budget: "Rozpočet",
   offer_l3: "L3",
   dunning_1: "Upomínka 1",
   dunning_2: "Upomínka 2",

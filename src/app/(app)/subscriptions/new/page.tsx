@@ -5,6 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { addDays } from "@/lib/dates";
 import { pragueToday } from "@/lib/format";
+import { db } from "@/db";
+import { getPackageOffer } from "@/server/billing/package-offers";
 import { newSubscriptionOptions } from "@/server/billing/queries";
 import { NewSubscriptionForm } from "./form";
 
@@ -32,6 +34,10 @@ async function Form({ searchParams }: Pick<PageProps<"/subscriptions/new">, "sea
   const sp = await searchParams;
   const options = await newSubscriptionOptions();
   const today = pragueToday();
+  // "Vytvořit předplatné" from saved calculator packages: prefill the chosen package.
+  const offer = typeof sp.offer === "string" ? await getPackageOffer(db, sp.offer) : null;
+  const pkgIndex = Number(sp.pkg);
+  const pkg = offer && Number.isInteger(pkgIndex) ? (offer.packages[pkgIndex] ?? null) : null;
   return (
     <NewSubscriptionForm
       clients={options.clients}
@@ -42,7 +48,20 @@ async function Form({ searchParams }: Pick<PageProps<"/subscriptions/new">, "sea
         monthlyPriceHalere: t.monthlyPriceHalere,
         features: t.features,
       }))}
-      initialClientId={typeof sp.client === "string" ? sp.client : ""}
+      initialClientId={offer?.clientId ?? (typeof sp.client === "string" ? sp.client : "")}
+      initialWebsiteId={offer?.websiteId ?? (typeof sp.website === "string" ? sp.website : "")}
+      fromOffer={
+        offer && pkg
+          ? {
+              offerId: offer.id,
+              index: pkgIndex,
+              tierId: pkg.tierId,
+              name: pkg.name,
+              priceHalere: pkg.priceHalere,
+              features: pkg.features,
+            }
+          : null
+      }
       today={today}
       dayBefore={addDays(today, -1)}
     />

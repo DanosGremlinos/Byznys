@@ -13,6 +13,7 @@ import {
   setSubscriptionPaused,
   setWebsiteSuspended,
 } from "@/server/billing/subscriptions";
+import { markOfferChosen } from "@/server/billing/package-offers";
 
 export type FormState = { ok?: string; error?: string };
 
@@ -44,6 +45,8 @@ const newSchema = z.object({
   features,
   startedOn: date,
   paidUntil: date,
+  packageOfferId: z.union([z.literal(""), z.string().uuid()]).optional(),
+  packageIndex: z.coerce.number().int().min(0).max(2).optional(),
 });
 
 export async function createSubscriptionAction(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -68,6 +71,8 @@ export async function createSubscriptionAction(_prev: FormState, formData: FormD
       paidUntil: d.paidUntil,
     });
     id = sub.id;
+    if (d.packageOfferId && d.packageIndex !== undefined)
+      await markOfferChosen(db, d.packageOfferId, sub.id, d.packageIndex);
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Předplatné se nepodařilo vytvořit." };
   }

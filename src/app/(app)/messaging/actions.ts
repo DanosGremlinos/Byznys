@@ -34,13 +34,14 @@ export type ActionState = { ok?: string; error?: string; warnings?: string[] };
 
 const composeSchema = z.object({
   recipient: z.string().regex(/^(lead|client):[0-9a-f-]{36}$/, "Vyberte adresáta"),
-  level: z.enum(["offer_l1", "offer_l2", "offer_l3"]),
+  level: z.enum(["offer_l1", "offer_l2", "offer_budget", "offer_l3"]),
   previewUrl: z.union([z.literal(""), z.string().url("Neplatná URL náhledu")]).optional(),
   screenshotUrl: z
     .union([z.literal(""), z.string().url("Neplatná URL screenshotu").startsWith("https://")])
     .optional(),
   tierId: z.string().optional(),
   price: z.string().optional(),
+  packageOfferId: z.union([z.literal(""), z.string().uuid()]).optional(),
   useAi: z.string().optional(),
 });
 
@@ -62,6 +63,7 @@ export async function composeOffer(_prev: ActionState, formData: FormData): Prom
       screenshotUrl: d.screenshotUrl || null,
       tierId: d.tierId || null,
       priceHalere: Number.isFinite(priceCzk) && priceCzk > 0 ? Math.round(priceCzk * 100) : null,
+      packageOfferId: d.level === "offer_l3" ? d.packageOfferId || null : null,
       useAi: d.useAi === "on",
     }));
   } catch (err) {

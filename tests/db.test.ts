@@ -25,7 +25,7 @@ describe.skipIf(!url)("database schema + seed", () => {
     const row = await one<{ n: number }>(
       sql`SELECT count(*)::int AS n FROM information_schema.tables WHERE table_schema = 'public'`,
     );
-    expect(row.n).toBe(23);
+    expect(row.n).toBe(24);
   });
 
   it("seeds every module", async () => {
@@ -49,6 +49,7 @@ describe.skipIf(!url)("database schema + seed", () => {
       "dunning_runs",
       "dunning_steps",
       "jobs",
+      "package_offers",
     ]) {
       const row = await one<{ n: number }>(sql`SELECT count(*)::int AS n FROM ${sql.identifier(table)}`);
       expect(row.n, table).toBeGreaterThan(0);

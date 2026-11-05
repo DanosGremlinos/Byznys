@@ -12,7 +12,10 @@ import {
   websites,
 } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth-guard";
+import { pragueToday } from "@/lib/format";
+import { jobStage, relevantSentKinds, type JobStage } from "@/lib/job-stage";
 import { fillMonths, type RevenuePoint } from "@/lib/revenue";
+import { packageOfferPresence, sentOfferKindsByClient } from "@/server/websites/queries";
 
 const OFFER_KINDS = ["offer_l1", "offer_l2", "offer_l3"] as const;
 const DAY = 86_400_000;
@@ -96,6 +99,9 @@ export type WebsiteTile = {
   } | null;
   unreadCount: number;
   unreadThreadId: string | null;
+  /** Where the job is in the pipeline (L1 → … → active subscription). */
+  stage: JobStage;
+  hasPackageOffer: boolean;
 };
 
 export async function getWebsiteTiles(): Promise<WebsiteTile[]> {
@@ -108,6 +114,7 @@ export async function getWebsiteTiles(): Promise<WebsiteTile[]> {
       status: websites.status,
       liveUrl: websites.liveUrl,
       previewUrl: websites.previewUrl,
+      createdAt: websites.createdAt,
       clientId: clients.id,
       clientName: clients.businessName,
       subName: subscriptions.name,
@@ -136,6 +143,10 @@ export async function getWebsiteTiles(): Promise<WebsiteTile[]> {
       and(eq(emails.direction, "inbound"), isNull(emails.readAt), sql`${emailThreads.clientId} is not null`),
     )
     .groupBy(emailThreads.clientId, emailThreads.id);
+  const [sentKinds, offers] = await Promise.all([sentOfferKindsByClient(db), packageOfferPresence(db)]);
+  const today = pragueToday();
+  const jobsPerClient = new Map<string, number>();
+  for (const r of rows) jobsPerClient.set(r.clientId, (jobsPerClient.get(r.clientId) ?? 0) + 1);
   const unreadByClient = new Map<string, { n: number; threadId: string; last: number }>();
   for (const u of unread) {
     const cur = unreadByClient.get(u.clientId!);
@@ -149,7 +160,20 @@ export async function getWebsiteTiles(): Promise<WebsiteTile[]> {
 
   return rows.map((r) => {
     const u = unreadByClient.get(r.clientId);
+    const hasPackageOffer = offers.websites.has(r.id) || offers.clientsWithoutJob.has(r.clientId);
+    const stage = jobStage({
+      websiteStatus: r.status,
+      subscription: r.subStatus ? { status: r.subStatus, paidUntil: r.subPaidUntil! } : null,
+      sentKinds: relevantSentKinds(sentKinds.get(r.clientId) ?? [], {
+        createdAt: r.createdAt,
+        clientHasOtherJobs: (jobsPerClient.get(r.clientId) ?? 0) > 1,
+      }),
+      hasPackageOffer,
+      today,
+    });
     return {
+      stage,
+      hasPackageOffer,
       id: r.id,
       name: r.name,
       domain: r.domain,

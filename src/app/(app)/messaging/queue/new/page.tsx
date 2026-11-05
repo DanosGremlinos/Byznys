@@ -3,7 +3,10 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { db } from "@/db";
+import { formatCzk, formatDate } from "@/lib/format";
 import { aiConfigured } from "@/server/ai/client";
+import { listPackageOffers } from "@/server/billing/package-offers";
 import { composeOptions } from "@/server/messaging/queries";
 import { ComposeForm } from "./compose-form";
 
@@ -30,7 +33,7 @@ export default function NewOfferPage({ searchParams }: PageProps<"/messaging/que
 
 async function Form({ searchParams }: Pick<PageProps<"/messaging/queue/new">, "searchParams">) {
   const sp = await searchParams;
-  const options = await composeOptions();
+  const [options, offers] = await Promise.all([composeOptions(), listPackageOffers(db)]);
   const initial =
     typeof sp.client === "string"
       ? `client:${sp.client}`
@@ -42,6 +45,14 @@ async function Form({ searchParams }: Pick<PageProps<"/messaging/queue/new">, "s
       leads={options.leads}
       clients={options.clients}
       tiers={options.tiers.map((t) => ({ id: t.id, name: t.name, monthlyPriceHalere: t.monthlyPriceHalere }))}
+      packageOffers={offers.map((o) => ({
+        id: o.id,
+        clientId: o.client.id,
+        label: `${formatDate(o.createdAt)} · rozpočet ${formatCzk(o.budgetHalere)} → ${o.packages
+          .map((p) => `${p.name} ${formatCzk(p.priceHalere)}${p.recommended ? " ★" : ""}`)
+          .join(" / ")}${o.website ? ` (${o.website.domain ?? o.website.name})` : ""}`,
+      }))}
+      initialOfferId={typeof sp.offer === "string" ? sp.offer : ""}
       initialRecipient={initial}
       aiEnabled={aiConfigured()}
     />

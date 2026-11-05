@@ -1,5 +1,12 @@
 import { relations } from "drizzle-orm";
-import { dunningRuns, dunningSteps, subscriptionEvents, subscriptionTiers, subscriptions } from "./billing";
+import {
+  dunningRuns,
+  dunningSteps,
+  packageOffers,
+  subscriptionEvents,
+  subscriptionTiers,
+  subscriptions,
+} from "./billing";
 import { builderAssets, builderProjects, builderPromptVersions } from "./builder";
 import { clients, websites } from "./clients";
 import { jobs } from "./jobs";
@@ -41,12 +48,14 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   subscriptions: many(subscriptions),
   threads: many(emailThreads),
   contracts: many(contracts),
+  packageOffers: many(packageOffers),
 }));
 
 export const websitesRelations = relations(websites, ({ one, many }) => ({
   client: one(clients, { fields: [websites.clientId], references: [clients.id] }),
   subscription: one(subscriptions),
   builderProjects: many(builderProjects),
+  packageOffers: many(packageOffers),
 }));
 
 export const builderProjectsRelations = relations(builderProjects, ({ one, many }) => ({
@@ -124,4 +133,11 @@ export const dunningRunsRelations = relations(dunningRuns, ({ one, many }) => ({
 export const dunningStepsRelations = relations(dunningSteps, ({ one }) => ({
   run: one(dunningRuns, { fields: [dunningSteps.runId], references: [dunningRuns.id] }),
   email: one(emails, { fields: [dunningSteps.emailId], references: [emails.id] }),
+}));
+
+export const packageOffersRelations = relations(packageOffers, ({ one }) => ({
+  client: one(clients, { fields: [packageOffers.clientId], references: [clients.id] }),
+  website: one(websites, { fields: [packageOffers.websiteId], references: [websites.id] }),
+  email: one(emails, { fields: [packageOffers.emailId], references: [emails.id] }),
+  subscription: one(subscriptions, { fields: [packageOffers.subscriptionId], references: [subscriptions.id] }),
 }));

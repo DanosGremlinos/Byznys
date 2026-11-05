@@ -368,3 +368,62 @@ shadcn runtime deps `radix-ui`, `class-variance-authority`, `clsx`, `tailwind-me
 3. **Production launch:** the production branch has no tables yet, and production env vars (`AUTH_SECRET`, admin
    login, keys) aren't set. When you want to go live, I'll prepare a checklist: migrate production, without the
    seed.
+
+## Úprava 1 — Kalkulačka balíčků („popcorn“) a zakázky ✅ (čeká na review)
+
+Branch `claude/charming-noether-cwusyd` (based on `claude/busy-clarke-49tnmm`). Requested by Vítek.
+
+### Finished
+- **Package calculator** (`Nastavení → Tarify`, top of the page):
+  - Enter the client's monthly budget (from their reply to the budget question), pick the client and job.
+  - Three packages are built live with decoy ("popcorn") pricing: **Premium** a bit *above* the budget
+    (×1.15, rounded down to a price ending in 90, always above the budget), **Standard** only 10 % (min. 100 Kč)
+    cheaper, **Základ** about half of Premium (min. 290 Kč, at least 200 Kč below Standard).
+    Example: budget 1 000 Kč → 490 / 990 / 1 090 Kč; 1 500 Kč → 790 / 1 490 / 1 690 Kč.
+  - Names and features come from the first three active package templates (Základ, Standard, Premium).
+    Prices and features can be edited by hand before saving. The page explains the decoy
+    ("Standard je jen o 100 Kč levnější než Premium, ale chybí mu: …") and warns when the decoy is weak
+    (< 2 extra features) or the budget is unusually low/high.
+  - All numbers are in one config file: `src/config/pricing.ts`. The calculator is a pure function
+    (`src/lib/package-calculator.ts`).
+  - "Uložit balíčky k zakázce" stores the three packages with the client and the job. The "Uložené balíčky"
+    table shows the outcome (Spočítáno / L3 ve frontě / L3 odesláno / Předplatné: X) and next actions.
+- **Budget question email** ("Dotaz na rozpočet", new email kind `offer_budget`) between L2 and L3 in
+  "Nová nabídka". Goes through the approval queue like everything else. Its template is created on first use (and by
+  the seed) and is then editable under Šablony. An inbox thread with this email has a "Spočítat balíčky z odpovědi"
+  button.
+- **L3 with the calculated packages:** "Balíčky z kalkulačky" picker in Nová nabídka (newest offer of the client
+  preselected). The email lists all three, marks Premium "★ … (nejoblíbenější)" and spells out "jen o X Kč víc a
+  navíc: …". The offer is linked to the email.
+- **Subscription from a package:** "+ Základ / + Standard / + Premium" buttons prefill Nové předplatné (client, job,
+  name, price, features); after creating it, the offer records which package the client took.
+- **Jobs (zakázky) = websites, visible from the start:**
+  - A job is created automatically when an **L2** draft is prepared (with the client), or with **"Založit zakázku"**
+    in the Builder (from the lead, or from the project's client info). The lead's Builder projects and earlier email
+    threads are attached to it.
+  - **Dashboard tiles** show the job's stage: Rozpracováno → Nabídka odeslána (L1) → Smlouva odeslána (L2) →
+    Čeká na rozpočet → Balíčky spočítány → Balíčky nabídnuty (L3) → Aktivní / po splatnosti / pozastaveno / zrušeno.
+    New filter "Aktivní – s balíčkem / Rozjednané – bez balíčku / Ukončené". Tiles without a package link to
+    "Spočítat balíčky" or "Založit předplatné".
+  - **Job detail** (`/websites/[id]`, "Detail zakázky"): package (subscription), pipeline checklist, client,
+    Builder projects with prompt versions, contracts, calculated packages, every email and the subscription history.
+- Seed: budget template, Premium template now contains everything from Standard, and a demo job
+  "Cukrárna U Zlaté lžičky" waiting for its L3 (budget 1 000 Kč, packages calculated).
+- Mobile: the new pages (and the compose form / dashboard tiles) fit a 390 px screen without horizontal scroll.
+
+### Database change (needs a migration) ⚠️
+- `drizzle/0002_package_offers.sql`: new table **`package_offers`** and a new email kind **`offer_budget`**.
+  Approved by the owner. Previews migrate automatically (`PREVIEW_DB_SETUP=1`); **production needs
+  `npm run db:migrate` against the production branch before/with the deploy.** No existing data changes.
+
+### Decisions
+- Premium above the budget (owner's choice "1b"); names stay Základ / Standard / Premium.
+- Offer emails are stored per client, so a job's stage uses the client's sent offer emails. When a client has more
+  than one job, only emails sent after the job was created count for it.
+- The job is created when the L2 *draft* is prepared (that's when the contract is generated), not when it is sent.
+
+### Checks
+- `npm run typecheck` ✅, `npm run lint` ✅, `npm test` ✅ (99 tests; new: calculator, job stage, and a DB test for
+  offers, budget email, L3 with offers, chosen package, job creation at L2 and from the Builder), `next build` ✅.
+- Browser check (Playwright, local DB, desktop + iPhone 13 width): dashboard filter and stages, job detail,
+  calculator → save → L3 draft with the packages, "Založit zakázku" from the Builder.
