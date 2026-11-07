@@ -389,8 +389,8 @@ Branch `claude/charming-noether-cwusyd` (based on `claude/busy-clarke-49tnmm`). 
   - "Uložit balíčky k zakázce" stores the three packages with the client and the job. The "Uložené balíčky"
     table shows the outcome (Spočítáno / L3 ve frontě / L3 odesláno / Předplatné: X) and next actions.
 - **Budget question email** ("Dotaz na rozpočet", new email kind `offer_budget`) between L2 and L3 in
-  "Nová nabídka". Goes through the approval queue like everything else. Its template is created on first use (and by
-  the seed) and is then editable under Šablony. An inbox thread with this email has a "Spočítat balíčky z odpovědi"
+  "Nová nabídka". Goes through the approval queue like everything else. Its template is added automatically when the Šablony
+  page is opened (or on first use, or by the seed), so it is editable there even on an existing database. An inbox thread with this email has a "Spočítat balíčky z odpovědi"
   button.
 - **L3 with the calculated packages:** "Balíčky z kalkulačky" picker in Nová nabídka (newest offer of the client
   preselected). The email lists all three, marks Premium "★ … (nejoblíbenější)" and spells out "jen o X Kč víc a

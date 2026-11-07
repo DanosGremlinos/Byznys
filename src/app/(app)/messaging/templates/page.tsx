@@ -19,7 +19,7 @@ const VARIABLES: [string, string][] = [
   ["{{issues}}", "konkrétní problémy současného webu (odrážky ze skóre)"],
   ["{{previewUrl}}", "odkaz na náhled návrhu"],
   ["{{packageName}} / {{monthlyPrice}}", "navržený balíček a měsíční cena"],
-  ["{{tierComparison}}", "srovnání balíčků (šablony tarifů)"],
+  ["{{tierComparison}}", "srovnání balíčků (z kalkulačky v Tarifech, jinak šablony tarifů)"],
   ["{{websiteDomain}}", "doména webu klienta"],
   ["{{senderName}}", "vaše jméno z EMAIL_FROM"],
   ["{{unsubscribeUrl}}", "odkaz pro odhlášení – doplní se vždy (když chybí, přidá se patička)"],
@@ -34,7 +34,7 @@ export default function TemplatesPage() {
     <>
       <PageHeader
         title="Šablony"
-        description="Šablony e-mailů L1–L3, upomínek a smlouvy. AI z nich vychází a doplní je o data klienta."
+        description="Šablony e-mailů L1–L3, dotazu na rozpočet, upomínek a smlouvy. AI z nich vychází a doplní je o data klienta."
         actions={
           <form action={createCustomTemplate}>
             <Button type="submit" variant="outline">

@@ -1,5 +1,6 @@
 import "server-only";
 import { and, asc, count, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { BUDGET_TEMPLATE } from "@/config/budget-template";
 import { db } from "@/db";
 import {
   clients,
@@ -161,6 +162,8 @@ export async function getThread(id: string) {
 
 export async function listTemplates() {
   await requireAdmin();
+  // Built-in templates added after the initial seed must be visible (and editable) before their first use.
+  await db.insert(emailTemplates).values(BUDGET_TEMPLATE).onConflictDoNothing({ target: emailTemplates.key });
   const [mail, contract] = await Promise.all([
     db.select().from(emailTemplates).orderBy(asc(emailTemplates.kind), asc(emailTemplates.name)),
     db
