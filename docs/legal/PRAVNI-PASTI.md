@@ -13,6 +13,8 @@ Aplikace zatím existuje jen jako zadání (`SPEC.md`). Tyto pasti v něm byly z
 | 5 | **Identifikace podnikatele** (OZ § 435) | E-maily, smlouvy a faktury musí obsahovat jméno, IČO, sídlo a zápis v rejstříku. V zadání nebylo nic. | Údaje se zadají jednou v `/nastaveni/firma` a vkládají se všude; bez nich odeslání selže. |
 | 6 | **Smlouva, předplatné a vymáhání** | Hrozba „pozastavíme web“ bez opory ve smlouvě, nejasné vlastnictví webu a domény, poplatky z prodlení „od oka“, chybějící zpracovatelská smlouva (hostuješ data z formulářů klientů). Navíc weby pro klienty neměly cookie lištu ani zásady. | Šablona smlouvy s povinnými body, varování o pozastavení jen při `allows_suspension`, pozastavení vždy ručně, poplatky podle NV 351/2013 Sb. Builder přidává do každého webu blok „Právní minimum webu“. |
 
+> **Bod 3:** v `PROGRESS.md` je tvoje rozhodnutí ukládat recenze a fotky z Places natrvalo. V zadání je proto pravidlo L3 jen jako vyhovující alternativa, ne k implementaci. Riziko je porušení podmínek Google (zablokování API klíče), ne pokuta od státu.
+
 ## Co musíš doplnit ty
 
 Všechna místa označená `[DOPLNIT]`:

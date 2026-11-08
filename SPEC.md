@@ -35,6 +35,7 @@ L2 GDPR for lead data. Sole traders (OSVČ), contact persons, personal emails an
 - Record each lead's `source` (places_api | own_website | manual) per field group.
 
 L3 Google Maps Platform terms. Places content may not be scraped, copied into your own database long-term or reused outside Google's display rules.
+- OWNER DECISION (PROGRESS.md): Places reviews and photos are stored permanently despite these terms. The rules below are the compliant alternative and are NOT to be implemented unless the owner reverses that decision. The asset-rights rules in L4 still apply.
 - Store `place_id` permanently. Other Places fields (rating, review count, hours, phone, Places photos, reviews) are cached at most 30 days with `fetched_at`, then refreshed or deleted by a cron job.
 - Places photos and review texts are never downloaded into Vercel Blob and never passed into the Builder prompt. When shown in the app they carry Google attribution.
 - Data scraped from the business's own website is stored separately and is not subject to this rule.
