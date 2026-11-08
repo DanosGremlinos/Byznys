@@ -1,6 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { db } from "@/db";
 import { createJob, runJob, runPendingJobs } from "@/server/jobs";
+import { purgeStaleLeads } from "@/server/leads/privacy";
 
 export const maxDuration = 300;
 
@@ -13,11 +15,15 @@ function authorized(request: Request): boolean {
   return expected.length === got.length && timingSafeEqual(expected, got);
 }
 
-/** Daily Vercel Cron (Hobby plan): overdue check (reminders into the approval queue) + resumes unfinished jobs. */
+/**
+ * Daily Vercel Cron (Hobby plan): overdue check (reminders into the approval queue), resumes unfinished
+ * jobs and erases leads past the retention period (GDPR).
+ */
 export async function GET(request: Request) {
   if (!authorized(request)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const job = await createJob("dunning_run", { trigger: "cron" }, "Denní kontrola plateb");
   await runJob(job.id);
   await runPendingJobs();
-  return NextResponse.json({ ok: true });
+  const erasedLeads = await purgeStaleLeads(db);
+  return NextResponse.json({ ok: true, erasedLeads });
 }

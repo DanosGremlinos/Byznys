@@ -65,3 +65,37 @@ export async function explainScore(leadId: string): Promise<{ text?: string; err
     return { error: err instanceof Error ? err.message : "Vysvětlení se nepodařilo vygenerovat." };
   }
 }
+
+const consentSchema = z.string().trim().min(3, "Popište, jak jste souhlas získali").max(500);
+
+/** Records the lead's consent to commercial email (zák. č. 480/2004 Sb.), e.g. after a phone call. */
+export async function recordLeadConsent(leadId: string, formData: FormData) {
+  await requireAdmin();
+  const note = consentSchema.safeParse(formData.get("note"));
+  if (!note.success)
+    redirect(`/leads/${leadId}?consentError=${encodeURIComponent(note.error.issues[0].message)}`);
+  const { db } = await import("@/db");
+  const { recordConsent } = await import("@/server/leads/privacy");
+  await recordConsent(db, leadId, note.data);
+  refresh();
+}
+
+export async function revokeLeadConsent(leadId: string) {
+  await requireAdmin();
+  const { db } = await import("@/db");
+  const { revokeConsent } = await import("@/server/leads/privacy");
+  await revokeConsent(db, leadId);
+  refresh();
+}
+
+/** GDPR erasure (or objection): deletes the lead; optionally keeps the address on the blacklist. */
+export async function eraseLeadAction(leadId: string, formData: FormData) {
+  await requireAdmin();
+  if (formData.get("confirm") !== "on") {
+    redirect(`/leads/${leadId}?consentError=${encodeURIComponent("Potvrďte výmaz zaškrtnutím.")}`);
+  }
+  const { db } = await import("@/db");
+  const { eraseLead } = await import("@/server/leads/privacy");
+  await eraseLead(db, leadId, { blacklist: formData.get("blacklist") === "on" });
+  redirect("/leads");
+}

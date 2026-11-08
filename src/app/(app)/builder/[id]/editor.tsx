@@ -41,6 +41,8 @@ export type EditorAsset = {
   sortOrder: number;
   isHero: boolean;
   isSelected: boolean;
+  /** Right to use it on the live site confirmed (client provided/approved it, reviewer agreed). */
+  rightsConfirmed: boolean;
   attribution: string | null;
   review: { author: string; rating: number; text: string } | null;
 };
@@ -159,6 +161,7 @@ export function BuilderEditor({
           sortOrder: a.sortOrder,
           isHero: a.isHero,
           isSelected: a.isSelected,
+          rightsConfirmed: a.rightsConfirmed,
         })),
       },
     };
@@ -226,6 +229,7 @@ export function BuilderEditor({
             sortOrder: kind === "photo" ? photos.length + 1 : 0,
             isHero: false,
             isSelected: true,
+            rightsConfirmed: true,
             attribution: null,
             review: null,
           },
@@ -417,7 +421,7 @@ export function BuilderEditor({
                           aria-label="Použít fotku"
                         />
                       </div>
-                      <div className="flex items-center justify-between gap-1 p-1.5">
+                      <div className="flex flex-wrap items-center justify-between gap-1 p-1.5">
                         <Button
                           type="button"
                           size="xs"
@@ -433,6 +437,10 @@ export function BuilderEditor({
                           <Star />
                           Hero
                         </Button>
+                        <RightsCheckbox
+                          asset={p}
+                          onChange={(v) => patchAsset(p.id, { rightsConfirmed: v })}
+                        />
                         {p.source === "upload" ? (
                           <Button
                             type="button"
@@ -467,29 +475,32 @@ export function BuilderEditor({
               {logos.length ? (
                 <div className="flex flex-wrap gap-3">
                   {logos.map((l) => (
-                    <label
+                    <div
                       key={l.id}
                       className={cn(
-                        "flex cursor-pointer items-center gap-2 rounded-md border p-2",
+                        "flex items-center gap-2 rounded-md border p-2",
                         l.isSelected && "ring-2 ring-primary",
                       )}
                     >
-                      <input
-                        type="radio"
-                        name="logo"
-                        checked={l.isSelected}
-                        onChange={() =>
-                          setAssets((cur) =>
-                            cur.map((a) => (a.kind === "logo" ? { ...a, isSelected: a.id === l.id } : a)),
-                          )
-                        }
-                      />
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={l.url ?? ""} alt="Logo" className="size-14 object-contain" />
-                      <span className="text-xs text-muted-foreground">
-                        {l.source === "upload" ? "nahrané" : "z webu"}
-                      </span>
-                    </label>
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <input
+                          type="radio"
+                          name="logo"
+                          checked={l.isSelected}
+                          onChange={() =>
+                            setAssets((cur) =>
+                              cur.map((a) => (a.kind === "logo" ? { ...a, isSelected: a.id === l.id } : a)),
+                            )
+                          }
+                        />
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={l.url ?? ""} alt="Logo" className="size-14 object-contain" />
+                        <span className="text-xs text-muted-foreground">
+                          {l.source === "upload" ? "nahrané" : "z webu"}
+                        </span>
+                      </label>
+                      <RightsCheckbox asset={l} onChange={(v) => patchAsset(l.id, { rightsConfirmed: v })} />
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -499,21 +510,28 @@ export function BuilderEditor({
 
             <section className="grid gap-2">
               <h3 className="text-sm font-medium">Recenze (zaškrtnuté se použijí jako reference)</h3>
+              <p className="text-xs text-muted-foreground">
+                Recenze napsali zákazníci, ne klient. Na ostrý web patří jen ty, u kterých klient potvrdí, že
+                je smí použít – pak zaškrtněte „Práva OK“.
+              </p>
               {reviews.length ? (
                 reviews.map((r) => (
-                  <label key={r.id} className="flex items-start gap-2 text-sm">
-                    <Checkbox
-                      checked={r.isSelected}
-                      onCheckedChange={(v) => patchAsset(r.id, { isSelected: v === true })}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      „{r.review?.text}“{" "}
-                      <span className="text-muted-foreground">
-                        — {r.review?.author}, {"★".repeat(r.review?.rating ?? 0)}
+                  <div key={r.id} className="flex items-start justify-between gap-3 text-sm">
+                    <label className="flex items-start gap-2">
+                      <Checkbox
+                        checked={r.isSelected}
+                        onCheckedChange={(v) => patchAsset(r.id, { isSelected: v === true })}
+                        className="mt-0.5"
+                      />
+                      <span>
+                        „{r.review?.text}“{" "}
+                        <span className="text-muted-foreground">
+                          — {r.review?.author}, {"★".repeat(r.review?.rating ?? 0)}
+                        </span>
                       </span>
-                    </span>
-                  </label>
+                    </label>
+                    <RightsCheckbox asset={r} onChange={(v) => patchAsset(r.id, { rightsConfirmed: v })} />
+                  </div>
                 ))
               ) : (
                 <p className="text-sm text-muted-foreground">Žádné recenze.</p>
@@ -890,5 +908,21 @@ function UploadButton({
         {label}
       </Button>
     </>
+  );
+}
+
+/** "Práva OK": the client provided/approved this asset for the live site. Unchecked = demo only. */
+function RightsCheckbox({ asset, onChange }: { asset: EditorAsset; onChange: (value: boolean) => void }) {
+  return (
+    <label
+      className={cn(
+        "flex shrink-0 items-center gap-1 text-xs",
+        asset.rightsConfirmed ? "text-emerald-700" : "text-amber-700",
+      )}
+      title="Zaškrtněte, až klient potvrdí, že podklad smí být na ostrém webu. Nepotvrzené podklady jdou do promptu jen pro neveřejný náhled."
+    >
+      <Checkbox checked={asset.rightsConfirmed} onCheckedChange={(v) => onChange(v === true)} />
+      Práva OK
+    </label>
   );
 }

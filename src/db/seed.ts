@@ -818,20 +818,29 @@ S pozdravem
       isDefault: true,
       body: `# Smlouva o tvorbě a správě webových stránek
 
-**Poskytovatel:** {{providerName}}, IČO {{providerIco}}
+**Poskytovatel:** {{providerName}}, IČO {{providerIco}}, se sídlem {{providerAddress}}, {{providerRegister}}
 **Objednatel:** {{clientName}}, IČO {{clientIco}}, {{clientAddress}}
 
 ## 1. Předmět smlouvy
 Poskytovatel vytvoří pro objednatele webové stránky na doméně {{domain}} a zajistí jejich provoz, hosting a údržbu.
 
 ## 2. Cena a platební podmínky
-Měsíční předplatné činí {{monthlyPrice}} (balíček {{packageName}}). Platba je splatná vždy na začátku placeného období.
+Měsíční předplatné činí {{monthlyPrice}} (balíček {{packageName}}). Je-li poskytovatel plátcem DPH, připočte se k ceně DPH v zákonné výši. Platba je splatná vždy na začátku placeného období. Při prodlení má poskytovatel nárok na zákonný úrok z prodlení a na náhradu nákladů spojených s uplatněním pohledávky podle nařízení vlády č. 351/2013 Sb.
 
 ## 3. Doba trvání
 Smlouva se uzavírá na dobu neurčitou s výpovědní lhůtou 1 měsíc.
 
 ## 4. Pozastavení služby
-Při prodlení s úhradou delším než 10 dní může poskytovatel provoz webu pozastavit.
+Je-li objednatel v prodlení s úhradou déle než 7 dní, poskytovatel ho písemně (e-mailem) vyzve k úhradě s upozorněním na pozastavení. Nezaplatí-li objednatel ani do 3 dnů od výzvy, může poskytovatel provoz webu pozastavit. Po zaplacení dlužné částky web obnoví nejpozději do 2 pracovních dnů.
+
+## 5. Doména, obsah a práva k webu
+Doména je registrována na objednatele, nebo mu ji poskytovatel na jeho žádost převede. Texty, fotografie a logo dodané objednatelem zůstávají objednateli; objednatel odpovídá za to, že k nim má potřebná práva. Poskytovatel uděluje objednateli po dobu trvání smlouvy licenci k užití webu. Při ukončení smlouvy poskytovatel na žádost předá obsah webu (texty a obrázky) a součinnost při převodu domény.
+
+## 6. Zpracování osobních údajů
+Údaje odeslané návštěvníky přes formuláře webu zpracovává poskytovatel pro objednatele jako zpracovatel (čl. 28 GDPR): jen podle pokynů objednatele a za účelem provozu webu, zabezpečeně, s poddodavateli pro hosting a e-mail, o nichž objednatele informuje. Po skončení smlouvy údaje předá objednateli a smaže je.
+
+## 7. Odpovědnost
+Poskytovatel odpovídá za škodu jen do výše ceny zaplacené za posledních 12 měsíců; to neplatí pro škodu způsobenou úmyslně nebo z hrubé nedbalosti.
 
 V {{city}} dne {{date}}
 

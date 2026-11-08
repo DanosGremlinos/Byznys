@@ -29,7 +29,10 @@ export default function BuilderProjectPage({ params, searchParams }: PageProps<"
   );
 }
 
-async function Project({ params, searchParams }: Pick<PageProps<"/builder/[id]">, "params" | "searchParams">) {
+async function Project({
+  params,
+  searchParams,
+}: Pick<PageProps<"/builder/[id]">, "params" | "searchParams">) {
   const { id } = await params;
   const { jobError } = await searchParams;
   const project = await getProjectForEditor(id);
@@ -51,6 +54,7 @@ async function Project({ params, searchParams }: Pick<PageProps<"/builder/[id]">
       sortOrder: a.sortOrder,
       isHero: a.isHero,
       isSelected: a.isSelected,
+      rightsConfirmed: a.rightsConfirmed,
       attribution: a.leadPhoto?.attribution ?? null,
       review: a.leadReview
         ? { author: a.leadReview.author, rating: a.leadReview.rating, text: a.leadReview.text }

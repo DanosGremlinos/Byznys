@@ -1,25 +1,24 @@
-# Šest právních pastí v zadání aplikace
+# Šest právních pastí v aplikaci
 
-Aplikace zatím existuje jen jako zadání (`SPEC.md`). Tyto pasti v něm byly zabudované a opravené jsou přímo v zadání (sekce `<legal>`, body L1–L6), aby je aplikace hlídala v kódu od fáze 0.
+Opravy jsou přímo v kódu (větev `claude/charming-noether-cwusyd`). Pravidla jsou i v zadání (`SPEC.md`, sekce `<legal>`).
 
-> Nejsem advokát. Tohle je kontrolní seznam s odkazy na předpisy, ne právní stanovisko. Před spuštěním ostré kampaně a před podpisem první smlouvy doporučuju nechat šablony v `content/legal/` projít advokátem.
+> Nejsem advokát. Tohle je kontrolní seznam s odkazy na předpisy, ne právní stanovisko. Před ostrou kampaní a první smlouvou doporučuju nechat šablonu smlouvy a stránku `/ochrana-udaju` projít advokátem.
 
-| # | Past | Co v zadání hrozilo | Oprava v zadání |
-|---|------|---------------------|-----------------|
-| 1 | **Nevyžádaná obchodní sdělení** (zák. 480/2004 Sb., § 7) | L1 nabídkový e-mail chodí studeným leadům. V ČR je u e-mailu potřeba předchozí souhlas i u firem; výjimka je jen pro vlastní zákazníky. Pokuty uděluje ÚOOÚ. | Lead má `contact_basis`; bez souhlasu se nabídka nedá odeslat. První kontakt telefonem / osobně, souhlas se zaznamená přes odkaz `/souhlas/…`. |
-| 2 | **GDPR u leadů** | OSVČ, kontaktní osoby, jejich e-maily a telefony jsou osobní údaje. Zadání je chtělo ukládat bez právního základu, bez informační povinnosti a bez výmazu. | Oprávněný zájem s testem (`lia.md`), veřejná stránka `/ochrana-udaju`, automatická anonymizace po 6 měsících, export a výmaz, seznam zpracovatelů (Anthropic, e-mail, platby, Neon, Vercel). |
-| 3 | **Podmínky Google Places API** | Ukládat napořád fotky, recenze a údaje z Places a používat je na webech klientů podmínky Google Maps Platform nepovolují. | Trvale jen `place_id`, ostatní max. 30 dní a obnovit / smazat. Fotky a recenze z Places nikdy do Blobu ani do promptu. |
-| 4 | **Autorská práva k fotkám, logu a recenzím** | Fotky a texty z cizích webů a recenze od zákazníků (autory jsou recenzenti) se měly rovnou použít na novém webu. | Každý podklad má `rights_status`. Do ostrého promptu jen schválené podklady; demo je neveřejné, `noindex`, s vodoznakem a vyprší. Reference jen se souhlasem. |
-| 5 | **Identifikace podnikatele** (OZ § 435) | E-maily, smlouvy a faktury musí obsahovat jméno, IČO, sídlo a zápis v rejstříku. V zadání nebylo nic. | Údaje se zadají jednou v `/nastaveni/firma` a vkládají se všude; bez nich odeslání selže. |
-| 6 | **Smlouva, předplatné a vymáhání** | Hrozba „pozastavíme web“ bez opory ve smlouvě, nejasné vlastnictví webu a domény, poplatky z prodlení „od oka“, chybějící zpracovatelská smlouva (hostuješ data z formulářů klientů). Navíc weby pro klienty neměly cookie lištu ani zásady. | Šablona smlouvy s povinnými body, varování o pozastavení jen při `allows_suspension`, pozastavení vždy ručně, poplatky podle NV 351/2013 Sb. Builder přidává do každého webu blok „Právní minimum webu“. |
-
-> **Bod 3:** v `PROGRESS.md` je tvoje rozhodnutí ukládat recenze a fotky z Places natrvalo. V zadání je proto pravidlo L3 jen jako vyhovující alternativa, ne k implementaci. Riziko je porušení podmínek Google (zablokování API klíče), ne pokuta od státu.
+| # | Past | Co hrozilo | Co teď dělá aplikace |
+|---|------|------------|----------------------|
+| 1 | **Nabídkové e-maily bez souhlasu** (zák. 480/2004 Sb., § 7) | L1 nabídka studeným leadům. V ČR je u e-mailu potřeba předchozí souhlas i u firem. Pokuty uděluje ÚOOÚ. | Nabídku leadu bez souhlasu nejde odeslat (zůstane ve frontě). Souhlas zapíšeš v detailu leadu po telefonu nebo osobní návštěvě. Výjimka: lead napsal první, nebo už je klient. |
+| 2 | **Chybějící identifikace odesílatele** (§ 435 OZ) | E-maily bez jména, IČO a sídla. | Každý e-mail má patičku s identifikací a odkazem na zásady, nabídky jsou označené „obchodní sdělení“. Bez `PROVIDER_NAME`, `PROVIDER_ICO`, `PROVIDER_ADDRESS` se nic neodešle. |
+| 3 | **GDPR u leadů** | OSVČ a kontaktní osoby jsou osobní údaje; chyběly zásady, výmaz i doba uložení. | Veřejná stránka `/ochrana-udaju`, export a výmaz leadu, automatické mazání leadů bez souhlasu po 180 dnech nečinnosti. |
+| 4 | **Autorská práva k fotkám, logu a recenzím** | Fotky a logo z cizího webu a recenze od zákazníků šly rovnou do zadání webu. | V Builderu je u každého podkladu „Práva OK“. Nepotvrzené jsou v promptu označené jen pro neveřejný náhled. Ukládání dat z Google Places zůstává podle tvého rozhodnutí. |
+| 5 | **Pozastavení webu a vymáhání** | Web šel pozastavit kdykoli; smlouva neřešila DPH, poplatky, doménu ani zpracování dat z formulářů. | Pozastavit jde až 3 dny po odeslání poslední výzvy. Výchozí šablona smlouvy má body o DPH, úrocích a nákladech podle NV 351/2013 Sb., pozastavení, doméně a licenci, zpracování osobních údajů a odpovědnosti. |
+| 6 | **Weby pro klienty** | Weby bez zásad ochrany údajů, s cookies z map a fontů a se zbytečným souhlasovým políčkem. | Prompt z Builderu obsahuje „Právní minimum webu“: identifikace v patičce, zásady, cookie lišta jen při analytice, u e-shopu obchodní podmínky a 14denní odstoupení. |
 
 ## Co musíš doplnit ty
 
 Všechna místa označená `[DOPLNIT]`:
 
-- `content/legal/ochrana-udaju.md` – zásady ochrany osobních údajů (stránka `/ochrana-udaju`)
+- Proměnné prostředí `PROVIDER_NAME`, `PROVIDER_ICO`, `PROVIDER_ADDRESS` (a volitelně `PROVIDER_REGISTER`, `PRIVACY_CONTACT_EMAIL`) ve Vercelu – bez nich se e-maily neodešlou
+- `content/legal/ochrana-udaju.md` – delší šablona zásad, pokud chceš text na `/ochrana-udaju` rozšířit
 - `content/legal/lia.md` – test oprávněného zájmu pro databázi leadů
 - `content/legal/smlouva-sablona.md` – šablona smlouvy o tvorbě a provozu webu
 - `docs/legal/processors.md` – zpracovatelé, region a odkazy na DPA (po výběru e-mailového a platebního poskytovatele)

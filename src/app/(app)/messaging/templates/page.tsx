@@ -27,7 +27,7 @@ const VARIABLES: [string, string][] = [
 ];
 
 const CONTRACT_VARIABLES =
-  "{{providerName}}, {{providerIco}}, {{providerAddress}}, {{clientName}}, {{clientIco}}, {{clientAddress}}, {{domain}}, {{packageName}}, {{monthlyPrice}}, {{city}}, {{date}}";
+  "{{providerName}}, {{providerIco}}, {{providerAddress}}, {{providerRegister}}, {{clientName}}, {{clientIco}}, {{clientAddress}}, {{domain}}, {{packageName}}, {{monthlyPrice}}, {{city}}, {{date}}";
 
 export default function TemplatesPage() {
   return (

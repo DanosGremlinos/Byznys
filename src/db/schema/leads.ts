@@ -40,6 +40,13 @@ export const leads = pgTable(
     logoUrl: text(),
     brandColors: jsonb().$type<string[]>(),
     contactPerson: text(),
+    /**
+     * Prior consent to receive commercial email (zákon č. 480/2004 Sb., § 7). Offer emails to a lead
+     * without consent are blocked at send time unless the lead wrote to us first.
+     */
+    contactConsentAt: timestamp({ withTimezone: true }),
+    /** How the consent was obtained (e.g. "telefonicky 8. 11. – souhlasil se zasláním nabídky"). */
+    contactConsentNote: text(),
     status: leadStatus().notNull().default("new"),
     /** Opportunity score 0–100; null until scored. */
     score: integer(),

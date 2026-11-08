@@ -427,3 +427,40 @@ Branch `claude/charming-noether-cwusyd` (based on `claude/busy-clarke-49tnmm`). 
   offers, budget email, L3 with offers, chosen package, job creation at L2 and from the Builder), `next build` ✅.
 - Browser check (Playwright, local DB, desktop + iPhone 13 width): dashboard filter and stages, job detail,
   calculator → save → L3 draft with the packages, "Založit zakázku" from the Builder.
+
+## Legal fixes ("6 právních pastí") ✅ (waiting for review)
+
+Requested by the owner on 8. 11. 2026. Rules in `SPEC.md` `<legal>`, overview in Czech in
+`docs/legal/PRAVNI-PASTI.md`.
+
+1. **Commercial email needs consent** (zák. č. 480/2004 Sb., § 7 – businesses too): new lead fields
+   `contact_consent_at` / `contact_consent_note`, recorded in the lead detail ("Souhlas a osobní údaje"). The send
+   function blocks `offer_*` emails to a lead without consent, unless the lead wrote first in that thread or the
+   thread belongs to a client. The draft stays in the queue and can go out once consent is recorded.
+2. **Sender identification** (§ 435 OZ): every email gets a footer with name, IČO, address and register entry
+   (`PROVIDER_NAME`, `PROVIDER_ICO`, `PROVIDER_ADDRESS`, optional `PROVIDER_REGISTER`), a link to the privacy page,
+   and offers are labelled "Toto je obchodní sdělení". **Sending is refused while these env vars are empty.**
+3. **GDPR for leads:** public page `/ochrana-udaju`, JSON export (`/api/leads/[id]/export`), erase button (optionally
+   keeps the address on the blacklist), and the daily cron erases leads without consent and without a client after
+   `LEAD_RETENTION_DAYS` (default 180) of inactivity.
+4. **Copyright of photos, logo and reviews:** `builder_assets.rights_confirmed` ("Práva OK" in the Builder; own
+   uploads count as confirmed). Unconfirmed assets are marked in the prompt as demo-only (noindex, banner, TODO to
+   replace or confirm). Places data is still stored permanently – the owner's earlier decision is unchanged.
+5. **Website suspension:** allowed only 3 days after reminder 3 (the final notice that warns about it) was sent;
+   cancelled subscriptions are not restricted. The default contract template now covers VAT, late-payment interest
+   and costs (NV 351/2013 Sb.), the suspension procedure, domain/content/licence, processing of form data
+   (GDPR art. 28) and a liability cap.
+6. **Client websites:** the Builder prompt has a "Právní minimum webu" block (identification in the footer, privacy
+   page, cookie consent only for non-essential cookies, e-shop terms and 14-day withdrawal), a contact form without
+   a pointless consent checkbox, click-to-load map and self-hosted fonts.
+
+### Database change (needs a migration) ⚠️
+- `drizzle/0003_legal_consent_rights.sql`: two nullable columns on `leads`, one boolean on `builder_assets`
+  (existing uploads set to confirmed). Requested by the owner. **Production needs `npm run db:migrate`.**
+- The new contract template is in the seed only: an existing database keeps its template, so copy the new text
+  from `src/db/seed.ts` into Šablony → Smlouva if you want it there.
+
+### Checks
+- `npm run typecheck` ✅, `npm run lint` ✅, `npm test` ✅ (112 tests; new: consent block, missing IČO, footer,
+  export/erase/retention, suspension guard, prompt rights markers and legal block), `next build` ✅.
+- Browser check (local DB): lead consent → export → Builder "Práva OK" checkboxes, `/ochrana-udaju` without login.

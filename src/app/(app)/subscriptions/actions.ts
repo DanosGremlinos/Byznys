@@ -157,8 +157,9 @@ export async function pauseSubscriptionAction(subscriptionId: string, paused: bo
   refresh();
 }
 
-export async function suspendWebsiteAction(websiteId: string, suspended: boolean) {
+export async function suspendWebsiteAction(websiteId: string, suspended: boolean, returnTo: string) {
   await requireAdmin();
-  await setWebsiteSuspended(db, websiteId, suspended);
+  const error = await setWebsiteSuspended(db, websiteId, suspended);
+  if (error && returnTo.startsWith("/")) redirect(`${returnTo}?suspendError=${encodeURIComponent(error)}`);
   refresh();
 }

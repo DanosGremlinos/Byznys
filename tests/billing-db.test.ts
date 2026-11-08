@@ -15,7 +15,12 @@ import {
 import { addDays } from "@/lib/dates";
 import { pragueToday } from "@/lib/format";
 import { processDunning, setRunPaused, syncDunningStepForEmail } from "@/server/billing/dunning";
-import { changePackage, createSubscription, recordPayment } from "@/server/billing/subscriptions";
+import {
+  changePackage,
+  createSubscription,
+  recordPayment,
+  setWebsiteSuspended,
+} from "@/server/billing/subscriptions";
 import type { EmailProvider, OutgoingEmail } from "@/server/email/provider";
 import { sendApprovedEmail } from "@/server/email/send";
 import { setupTestDb } from "./helpers/db";
@@ -111,6 +116,29 @@ describe.skipIf(!url)("billing & dunning (DB)", () => {
     expect(steps[2].status).toBe("queued_for_approval");
     const final = await db.query.emails.findFirst({ where: eq(emails.id, steps[2].emailId!) });
     expect(final?.kind).toBe("dunning_3");
+  });
+
+  it("allows suspending the website only after the final notice's deadline", async () => {
+    const provider = new FakeProvider();
+    const sub = await newSub(addDays(TODAY, -10), "Pozastaveni");
+    await processDunning(db, TODAY);
+    const { steps } = await stepsOf(sub.id);
+    expect(steps[2].status).toBe("queued_for_approval");
+    const early = await setWebsiteSuspended(db, sub.websiteId, true);
+    expect(early).toContain("poslední výzvy");
+    expect((await db.query.websites.findFirst({ where: eq(websites.id, sub.websiteId) }))?.status).not.toBe(
+      "suspended",
+    );
+    expect((await sendApprovedEmail(db, provider, steps[2].emailId!)).ok).toBe(true);
+    expect(await setWebsiteSuspended(db, sub.websiteId, true)).toContain("poslední výzvy"); // deadline not over
+    await db
+      .update(emails)
+      .set({ sentAt: new Date(Date.now() - 4 * 86_400_000) })
+      .where(eq(emails.id, steps[2].emailId!));
+    expect(await setWebsiteSuspended(db, sub.websiteId, true)).toBeNull();
+    expect((await db.query.websites.findFirst({ where: eq(websites.id, sub.websiteId) }))?.status).toBe(
+      "suspended",
+    );
   });
 
   it("queues only the latest due step when the check catches up", async () => {
