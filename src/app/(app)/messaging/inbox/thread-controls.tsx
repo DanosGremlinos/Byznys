@@ -95,7 +95,7 @@ export function SimulateInbound({ threadId }: { threadId: string }) {
   return (
     <form action={action} className="grid gap-2 rounded-md border border-dashed p-3">
       <p className="text-xs text-muted-foreground">
-        Vývojový režim: simulace příchozí odpovědi od klienta (ve skutečném provozu přijde přes Mailgun).
+        Vývojový režim: simulace příchozí odpovědi od klienta (ve skutečném provozu přijde přes webhook e-mailové služby).
       </p>
       <Textarea name="text" rows={3} placeholder="Např. Dobrý den, návrh se nám líbí, kolik by to stálo?" />
       <div className="flex items-center gap-3">

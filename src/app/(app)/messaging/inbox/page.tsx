@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { aiConfigured } from "@/server/ai/client";
+import { isLiveEmailProvider } from "@/server/email/provider";
 import { getThread, listThreads, type ThreadFilter } from "@/server/messaging/queries";
 import { ClassificationControl, MarkRead, ReplyForm, SimulateInbound } from "./thread-controls";
 
@@ -51,7 +52,7 @@ async function Inbox({ searchParams }: Pick<PageProps<"/messaging/inbox">, "sear
   const threadId = typeof sp.thread === "string" ? sp.thread : undefined;
   const [threads, thread] = await Promise.all([listThreads(filter), threadId ? getThread(threadId) : null]);
   const ai = aiConfigured();
-  const devMode = process.env.EMAIL_PROVIDER !== "mailgun";
+  const devMode = !isLiveEmailProvider();
   const unread = thread ? thread.emails.filter((e) => e.direction === "inbound" && !e.readAt).length : 0;
 
   return (

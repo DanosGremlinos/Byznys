@@ -144,7 +144,7 @@ export const emailBlacklist = pgTable("email_blacklist", {
   createdAt: createdAt(),
 });
 
-/** Idempotency log for incoming provider webhooks (Mailgun). */
+/** Idempotency log for incoming provider webhooks (Resend, Mailgun). */
 export const webhookEvents = pgTable(
   "webhook_events",
   {

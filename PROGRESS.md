@@ -427,3 +427,35 @@ Branch `claude/charming-noether-cwusyd` (based on `claude/busy-clarke-49tnmm`). 
   offers, budget email, L3 with offers, chosen package, job creation at L2 and from the Builder), `next build` ✅.
 - Browser check (Playwright, local DB, desktop + iPhone 13 width): dashboard filter and stages, job detail,
   calculator → save → L3 draft with the packages, "Založit zakázku" from the Builder.
+
+## Úprava 2 — Produkce aktualizována + e-maily přes Resend ✅ (čeká na review)
+
+### Production (done 2026-11-09)
+- Production runs `main` (`0c9c636`). Migrations `0000`–`0002` applied to the production Neon branch in one
+  transaction, recorded in `drizzle.__drizzle_migrations` (so `npm run db:migrate` skips them). 24 tables.
+- Default data copied from the dev branch: 4 tiers, 7 email templates (incl. `offer_budget_default`),
+  1 contract template. No leads, clients or seed data.
+- `CRON_SECRET` set (Production, sensitive) and production redeployed.
+
+### Resend (owner switched from Mailgun)
+- `ResendEmailProvider` (`src/server/email/provider.ts`): Resend HTTP API via `fetch`, **no SDK dependency**.
+  Our `Message-ID` / `In-Reply-To` / `References` go as custom headers; the Message-ID is also the
+  `Idempotency-Key`, so a retried send is never delivered twice. Attachments as base64.
+  `EMAIL_PROVIDER=resend` enables it; `isLiveEmailProvider()` replaces the old `=== "mailgun"` checks.
+- One webhook `/api/webhooks/resend` (public, verified by the Standard Webhooks/Svix signature with
+  `RESEND_WEBHOOK_SECRET`, 5-minute window, idempotent by delivery id):
+  - `email.received` → full email fetched from `GET /emails/receiving/{id}` → inbox + AI classification;
+  - permanent `email.bounced`, `email.complained`, `email.suppressed` → blacklist.
+- Mailgun code stays as an alternative (`EMAIL_PROVIDER=mailgun`).
+- Resend has no test mode: test by sending to `delivered@resend.dev`.
+- Not verified against a live Resend account yet (resend.com is not reachable from the build session); API
+  shapes taken from the official `resend` npm package (v6.37) type definitions.
+
+### Needed in production (Vercel → Production env)
+- `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` (already set), `EMAIL_FROM` on the domain verified in Resend,
+  `RESEND_WEBHOOK_SECRET` from the Resend webhook, and Resend Receiving enabled for that domain (MX record)
+  so replies reach the inbox.
+
+### Checks
+- `npm run typecheck` ✅, `npm test` ✅ (new: Resend signature — valid, rotated keys, tampered, wrong secret,
+  stale, missing headers; case-insensitive headers).

@@ -18,6 +18,7 @@ import { requireAdmin } from "@/lib/auth-guard";
 import { aiConfigured } from "@/server/ai/client";
 import { draftReply } from "@/server/ai/messaging";
 import { syncDunningStepForEmail } from "@/server/billing/dunning";
+import { isLiveEmailProvider } from "@/server/email/provider";
 import { addToBlacklist } from "@/server/email/blacklist";
 import { classifyInboundEmail } from "@/server/email/classify";
 import { ingestInbound } from "@/server/email/inbound";
@@ -237,7 +238,7 @@ export async function simulateInbound(
   formData: FormData,
 ): Promise<ActionState> {
   await requireAdmin();
-  if (process.env.EMAIL_PROVIDER === "mailgun")
+  if (isLiveEmailProvider())
     return { error: "Simulace je dostupná jen ve vývojovém režimu." };
   const text = String(formData.get("text") ?? "").trim();
   if (!text) return { error: "Zadejte text odpovědi." };

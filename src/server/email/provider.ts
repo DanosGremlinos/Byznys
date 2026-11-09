@@ -1,5 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { RESEND_API } from "./resend";
 
 export type OutgoingEmail = {
   from: string;
@@ -18,7 +19,7 @@ export type OutgoingEmail = {
 export type SendResult = { providerMessageId: string; delivered: boolean };
 
 export interface EmailProvider {
-  readonly name: "log" | "mailgun";
+  readonly name: "log" | "mailgun" | "resend";
   send(email: OutgoingEmail): Promise<SendResult>;
 }
 
@@ -70,8 +71,60 @@ export class MailgunEmailProvider implements EmailProvider {
   }
 }
 
-/** EMAIL_PROVIDER=mailgun enables real sending; anything else (default) only logs. */
+/** Resend HTTP API. There is no test mode: use addresses like delivered@resend.dev for trials. */
+export class ResendEmailProvider implements EmailProvider {
+  readonly name = "resend" as const;
+  constructor(private readonly apiKey: string) {}
+
+  async send(email: OutgoingEmail): Promise<SendResult> {
+    const headers: Record<string, string> = { ...(email.headers ?? {}), "Message-ID": email.messageId };
+    if (email.inReplyTo) headers["In-Reply-To"] = email.inReplyTo;
+    if (email.references?.length) headers["References"] = email.references.join(" ");
+    const res = await fetch(`${RESEND_API}/emails`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${this.apiKey}`,
+        "content-type": "application/json",
+        // Our Message-ID is unique per email, so a retried request is never sent twice.
+        "Idempotency-Key": email.messageId,
+      },
+      body: JSON.stringify({
+        from: email.from,
+        to: [email.to],
+        subject: email.subject,
+        text: email.text,
+        ...(email.html ? { html: email.html } : {}),
+        headers,
+        ...(email.attachments?.length
+          ? {
+              attachments: email.attachments.map((a) => ({
+                filename: a.filename,
+                content: Buffer.from(a.content).toString("base64"),
+                content_type: a.contentType,
+              })),
+            }
+          : {}),
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const body = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
+    if (!res.ok) throw new Error(`Resend ${res.status}: ${body.message ?? "chyba odeslání"}`);
+    return { providerMessageId: body.id ?? email.messageId, delivered: true };
+  }
+}
+
+/** True when emails are really delivered (EMAIL_PROVIDER=resend or mailgun). */
+export function isLiveEmailProvider(): boolean {
+  return process.env.EMAIL_PROVIDER === "resend" || process.env.EMAIL_PROVIDER === "mailgun";
+}
+
+/** EMAIL_PROVIDER=resend|mailgun enables real sending; anything else (default) only logs. */
 export function getEmailProvider(): EmailProvider {
+  if (process.env.EMAIL_PROVIDER === "resend") {
+    const key = process.env.RESEND_API_KEY;
+    if (!key) throw new Error("EMAIL_PROVIDER=resend, ale chybí RESEND_API_KEY");
+    return new ResendEmailProvider(key);
+  }
   if (process.env.EMAIL_PROVIDER === "mailgun") {
     const key = process.env.MAILGUN_API_KEY;
     const domain = process.env.MAILGUN_DOMAIN;

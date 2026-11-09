@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { parseContract, renderContractPdf } from "@/server/contracts/pdf";
 import { parseMessageIds, verifyMailgunSignature } from "@/server/email/mailgun";
+import { headerOf, verifyResendSignature } from "@/server/email/resend";
 import {
   addressOf,
   createUnsubscribeToken,
@@ -84,6 +85,34 @@ describe("Mailgun webhook signature", () => {
   it("parses References headers", () => {
     expect(parseMessageIds("<a@x> <b@y>\n <c@z>")).toEqual(["<a@x>", "<b@y>", "<c@z>"]);
     expect(parseMessageIds(null)).toEqual([]);
+  });
+});
+
+describe("resend webhook signature", () => {
+  const rawKey = Buffer.from("super-secret-test-key-0123456789");
+  const secret = `whsec_${rawKey.toString("base64")}`;
+  const id = "msg_2abc";
+  const ts = "1793900000";
+  const body = '{"type":"email.received","data":{"email_id":"e1"}}';
+  const sig = createHmac("sha256", rawKey).update(`${id}.${ts}.${body}`).digest("base64");
+  const now = Number(ts) * 1000 + 30_000;
+  it("accepts a valid signature, also among several (key rotation)", () => {
+    expect(verifyResendSignature(secret, { id, timestamp: ts, signature: `v1,${sig}` }, body, now)).toBe(true);
+    expect(
+      verifyResendSignature(secret, { id, timestamp: ts, signature: `v1,AAAA v1,${sig}` }, body, now),
+    ).toBe(true);
+  });
+  it("rejects tampered body, wrong secret, stale timestamp and missing headers", () => {
+    const h = { id, timestamp: ts, signature: `v1,${sig}` };
+    expect(verifyResendSignature(secret, h, body + " ", now)).toBe(false);
+    expect(verifyResendSignature("whsec_b3RoZXI=", h, body, now)).toBe(false);
+    expect(verifyResendSignature(secret, h, body, now + 3_600_000)).toBe(false);
+    expect(verifyResendSignature(secret, { ...h, signature: null }, body, now)).toBe(false);
+    expect(verifyResendSignature("", h, body, now)).toBe(false);
+  });
+  it("looks up received headers case-insensitively", () => {
+    expect(headerOf({ "In-Reply-To": "<a@x>" }, "in-reply-to")).toBe("<a@x>");
+    expect(headerOf(null, "references")).toBeNull();
   });
 });
 
