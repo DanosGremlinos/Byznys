@@ -18,8 +18,9 @@ const VARIABLES: [string, string][] = [
   ["{{contactGreeting}}", "oslovení (doplní AI, jinak prázdné)"],
   ["{{issues}}", "konkrétní problémy současného webu (odrážky ze skóre)"],
   ["{{previewUrl}}", "odkaz na náhled návrhu"],
-  ["{{packageName}} / {{monthlyPrice}}", "navržený balíček a měsíční cena"],
-  ["{{tierComparison}}", "srovnání balíčků (z kalkulačky v Tarifech, jinak šablony tarifů)"],
+  ["{{webPrice}}", "L2: pevná jednorázová cena za vytvoření webu"],
+  ["{{packageName}} / {{monthlyPrice}}", "L3: doporučený balíček správy a jeho měsíční cena"],
+  ["{{tierComparison}}", "L3: srovnání balíčků správy (z kalkulačky v Tarifech, jinak šablony)"],
   ["{{websiteDomain}}", "doména webu klienta"],
   ["{{senderName}}", "vaše jméno z EMAIL_FROM"],
   ["{{unsubscribeUrl}}", "odkaz pro odhlášení – doplní se vždy (když chybí, přidá se patička)"],
@@ -27,14 +28,14 @@ const VARIABLES: [string, string][] = [
 ];
 
 const CONTRACT_VARIABLES =
-  "{{providerName}}, {{providerIco}}, {{providerAddress}}, {{clientName}}, {{clientIco}}, {{clientAddress}}, {{domain}}, {{packageName}}, {{monthlyPrice}}, {{city}}, {{date}}";
+  "{{providerName}}, {{providerIco}}, {{providerAddress}}, {{clientName}}, {{clientIco}}, {{clientAddress}}, {{domain}}, {{webPrice}}, {{packageName}}, {{monthlyPrice}}, {{city}}, {{date}}";
 
 export default function TemplatesPage() {
   return (
     <>
       <PageHeader
         title="Šablony"
-        description="Šablony e-mailů L1–L3, dotazu na rozpočet, upomínek a smlouvy. AI z nich vychází a doplní je o data klienta."
+        description="Šablony e-mailů L1–L3, dotazu na rozpočet a upomínek. AI z nich vychází a doplní je o data klienta. Vlastní smlouvu k podpisu přikládáte jako soubor ve frontě ke schválení; šablona smlouvy dole slouží jen pro volitelně vygenerovanou smlouvu."
         actions={
           <form action={createCustomTemplate}>
             <Button type="submit" variant="outline">

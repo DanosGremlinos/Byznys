@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
@@ -42,6 +43,8 @@ const composeSchema = z.object({
     .optional(),
   tierId: z.string().optional(),
   price: z.string().optional(),
+  webPrice: z.string().optional(),
+  generateContract: z.string().optional(),
   packageOfferId: z.union([z.literal(""), z.string().uuid()]).optional(),
   useAi: z.string().optional(),
 });
@@ -53,6 +56,9 @@ export async function composeOffer(_prev: ActionState, formData: FormData): Prom
   const d = parsed.data;
   const [type, id] = d.recipient.split(":");
   const priceCzk = d.price ? Number(d.price.replace(/\s/g, "").replace(",", ".")) : NaN;
+  const webPriceCzk = d.webPrice ? Number(d.webPrice.replace(/\s/g, "").replace(",", ".")) : NaN;
+  if (d.level === "offer_l2" && !(Number.isFinite(webPriceCzk) && webPriceCzk > 0))
+    return { error: "Zadejte cenu za vytvoření webu v Kč." };
   let emailId: string;
   let warnings: string[];
   try {
@@ -65,6 +71,8 @@ export async function composeOffer(_prev: ActionState, formData: FormData): Prom
       tierId: d.tierId || null,
       priceHalere: Number.isFinite(priceCzk) && priceCzk > 0 ? Math.round(priceCzk * 100) : null,
       packageOfferId: d.level === "offer_l3" ? d.packageOfferId || null : null,
+      webPriceHalere: d.level === "offer_l2" ? Math.round(webPriceCzk * 100) : null,
+      generateContract: d.level === "offer_l2" && d.generateContract === "on",
       useAi: d.useAi === "on",
     }));
   } catch (err) {
@@ -318,6 +326,50 @@ export async function saveContractTemplate(
   await db.update(contractTemplates).set(parsed.data).where(eq(contractTemplates.id, id));
   refresh();
   return { ok: "Šablona smlouvy uložena." };
+}
+
+// ---------------------------------------------------------------------------
+// Attachments uploaded to a draft (e.g. the owner's own contract for signing)
+// ---------------------------------------------------------------------------
+
+const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024;
+const EDITABLE = ["pending_approval", "approved", "failed", "blocked"] as const;
+
+export async function uploadDraftAttachment(
+  emailId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireAdmin();
+  const file = formData.get("file");
+  if (!(file instanceof File) || !file.size) return { error: "Vyberte soubor." };
+  if (file.size > MAX_ATTACHMENT_BYTES) return { error: "Soubor je větší než 4 MB." };
+  const email = await db.query.emails.findFirst({ where: eq(emails.id, emailId) });
+  if (!email || !(EDITABLE as readonly string[]).includes(email.status))
+    return { error: "K tomuto e-mailu už nejde přidat přílohu." };
+  const id = randomUUID();
+  const filename = file.name.replace(/[\\/\r\n"]/g, "_").slice(0, 200) || "priloha";
+  await db.insert(emailAttachments).values({
+    id,
+    emailId,
+    url: `/api/attachments/${id}`,
+    filename,
+    contentType: file.type || "application/octet-stream",
+    sizeBytes: file.size,
+    content: new Uint8Array(await file.arrayBuffer()),
+  });
+  refresh();
+  return { ok: `Příloha ${filename} přidána.` };
+}
+
+export async function removeDraftAttachment(emailId: string, attachmentId: string): Promise<void> {
+  await requireAdmin();
+  const email = await db.query.emails.findFirst({ where: eq(emails.id, emailId) });
+  if (!email || !(EDITABLE as readonly string[]).includes(email.status)) return;
+  await db
+    .delete(emailAttachments)
+    .where(and(eq(emailAttachments.id, attachmentId), eq(emailAttachments.emailId, emailId)));
+  refresh();
 }
 
 /** Edits the contract attached to a draft (the PDF is rendered from this text when sending). */

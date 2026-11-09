@@ -118,7 +118,7 @@ export async function getJobDetail(db: Database, websiteId: string) {
       ),
       orderBy: desc(packageOffers.createdAt),
       with: {
-        client: { columns: { id: true, businessName: true } },
+        client: { columns: { id: true, businessName: true, leadId: true } },
         website: { columns: { id: true, name: true, domain: true } },
         email: { columns: { id: true, status: true, sentAt: true } },
         subscription: { columns: { id: true, name: true, priceHalere: true, status: true } },

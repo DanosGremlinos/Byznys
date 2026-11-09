@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { PackageOffersTable } from "@/components/billing/package-offers-table";
+import { ConfirmAction } from "@/components/common/confirm-action";
 import { EMAIL_STATUS_LABELS, KIND_LABELS } from "@/components/messaging/labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getJobDetail } from "@/server/websites/queries";
 import { openWebsiteInBuilder } from "../../builder/actions";
+import { deleteJobAction } from "../actions";
 
 export const metadata: Metadata = { title: "Zakázka" };
 
@@ -55,10 +57,10 @@ async function Job({ params }: Pick<PageProps<"/websites/[id]">, "params">) {
   const steps: { label: string; done: boolean }[] = [
     { label: "Návrh v Builderu", done: website.builderProjects.length > 0 },
     { label: "L1 – první nabídka odeslána", done: sentKinds.has("offer_l1") },
-    { label: "L2 – návrh a smlouva odeslány", done: sentKinds.has("offer_l2") },
+    { label: "L2 – návrh, cena a smlouva odeslány", done: sentKinds.has("offer_l2") },
     { label: "Dotaz na rozpočet odeslán", done: sentKinds.has("offer_budget") },
     { label: "Balíčky spočítány", done: offers.length > 0 },
-    { label: "L3 – balíčky nabídnuty", done: sentKinds.has("offer_l3") },
+    { label: "L3 – správa nabídnuta", done: sentKinds.has("offer_l3") },
     { label: "Předplatné založeno", done: !!sub },
   ];
 
@@ -98,13 +100,20 @@ async function Job({ params }: Pick<PageProps<"/websites/[id]">, "params">) {
               Poslat e-mail
             </Link>
           </Button>
+          {sub ? null : (
+            <ConfirmAction
+              action={deleteJobAction.bind(null, website.id)}
+              confirmText={`Odebrat zakázku „${website.name}“ z přehledu? Klient, e-maily, projekty v Builderu i uložené balíčky zůstanou.`}
+              label="Odebrat zakázku"
+            />
+          )}
         </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="min-w-0 lg:col-span-2">
           <CardHeader>
-            <CardTitle>Balíček</CardTitle>
+            <CardTitle>Správa webu</CardTitle>
           </CardHeader>
           <CardContent>
             {sub ? (
@@ -147,8 +156,8 @@ async function Job({ params }: Pick<PageProps<"/websites/[id]">, "params">) {
             ) : (
               <div className="grid gap-3 text-sm">
                 <p className="text-muted-foreground">
-                  Zakázka zatím nemá balíček. Postup: pošlete „Dotaz na rozpočet“, z odpovědi spočítejte balíčky,
-                  pošlete je v e-mailu L3 a po souhlasu klienta založte předplatné.
+                  Zakázka zatím nemá měsíční správu. Postup: pošlete „Dotaz na rozpočet“, z odpovědi spočítejte
+                  balíčky správy, pošlete je v e-mailu L3 a po souhlasu klienta založte předplatné.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button asChild size="sm" variant="outline">
@@ -281,7 +290,10 @@ async function Job({ params }: Pick<PageProps<"/websites/[id]">, "params">) {
                 </a>
               ))
             ) : (
-              <p className="text-muted-foreground">Zatím žádná smlouva (vzniká s e-mailem L2).</p>
+              <p className="text-muted-foreground">
+                Zatím žádná vygenerovaná smlouva. Vlastní smlouvu přikládáte k e-mailu L2 – najdete ji u e-mailu
+                níže.
+              </p>
             )}
           </CardContent>
         </Card>
@@ -289,7 +301,7 @@ async function Job({ params }: Pick<PageProps<"/websites/[id]">, "params">) {
 
       <Card className="min-w-0">
         <CardHeader>
-          <CardTitle>Balíčky z kalkulačky</CardTitle>
+          <CardTitle>Balíčky správy z kalkulačky</CardTitle>
         </CardHeader>
         <CardContent>
           <PackageOffersTable offers={offers} showClient={false} />

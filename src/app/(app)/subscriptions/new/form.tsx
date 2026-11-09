@@ -9,32 +9,49 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { createSubscriptionAction, type FormState } from "../actions";
 
+type SavedOffer = {
+  id: string;
+  clientId: string;
+  clientName: string;
+  websiteId: string | null;
+  label: string;
+  packages: { tierId: string | null; name: string; priceHalere: number; features: string[]; recommended: boolean }[];
+};
+
 type Props = {
   clients: { id: string; name: string }[];
   websites: { id: string; clientId: string; name: string; domain: string | null }[];
   tiers: { id: string; name: string; monthlyPriceHalere: number; features: string[] }[];
+  /** Saved calculator packages (all clients; the selected client's are listed first). */
+  offers: SavedOffer[];
   initialClientId: string;
   initialWebsiteId: string;
-  /** Package chosen from saved calculator packages (prefills name, price, features). */
-  fromOffer: {
-    offerId: string;
-    index: number;
-    tierId: string | null;
-    name: string;
-    priceHalere: number;
-    features: string[];
-  } | null;
+  /** "offer:<offerId>:<index>" to preselect a saved package. */
+  initialPackage: string;
   today: string;
   dayBefore: string;
 };
+
+const czk = (halere: number) => `${(halere / 100).toLocaleString("cs-CZ")} Kč`;
+
+function offerOptions(offer: SavedOffer, withClient: boolean) {
+  return offer.packages.map((p, i) => (
+    <option key={`${offer.id}-${i}`} value={`offer:${offer.id}:${i}`}>
+      {p.recommended ? "★ " : ""}
+      {p.name} – {czk(p.priceHalere)} / měsíc · {withClient ? `${offer.clientName}, ` : ""}
+      {offer.label}
+    </option>
+  ));
+}
 
 export function NewSubscriptionForm({
   clients,
   websites,
   tiers,
+  offers,
   initialClientId,
   initialWebsiteId,
-  fromOffer,
+  initialPackage,
   today,
   dayBefore,
 }: Props) {
@@ -44,26 +61,33 @@ export function NewSubscriptionForm({
   const [websiteId, setWebsiteId] = useState<string>(initialWebsiteId);
   const effectiveWebsite =
     websiteId === "new" || clientSites.some((w) => w.id === websiteId) ? websiteId : (clientSites[0]?.id ?? "new");
-  const [tierId, setTierId] = useState(fromOffer ? (fromOffer.tierId ?? "") : (tiers[0]?.id ?? ""));
-  // Until the template is changed by hand, the package from the saved offer is used.
-  const [useOffer, setUseOffer] = useState(fromOffer !== null);
-  const template = tiers.find((t) => t.id === tierId);
-  const tier =
-    useOffer && fromOffer
-      ? { name: fromOffer.name, monthlyPriceHalere: fromOffer.priceHalere, features: fromOffer.features }
-      : template;
+  const clientOffers = offers.filter((o) => o.clientId === clientId);
+  const otherOffers = offers.filter((o) => o.clientId !== clientId);
+  // Default: the recommended package of the client's newest saved offer, otherwise the first template.
+  const defaultChoice = (cid: string) => {
+    const o = offers.find((x) => x.clientId === cid);
+    if (o) return `offer:${o.id}:${Math.max(0, o.packages.findIndex((p) => p.recommended))}`;
+    return tiers[0] ? `tier:${tiers[0].id}` : "custom";
+  };
+  const [choice, setChoice] = useState(initialPackage || defaultChoice(initialClientId));
+
+  const [kind, refId, idx] = choice.split(":");
+  const offer = kind === "offer" ? offers.find((o) => o.id === refId) : undefined;
+  const offerPkg = offer?.packages[Number(idx)];
+  const template = kind === "tier" ? tiers.find((t) => t.id === refId) : undefined;
+  const pkg = offerPkg
+    ? { name: offerPkg.name, monthlyPriceHalere: offerPkg.priceHalere, features: offerPkg.features }
+    : template;
+  const tierId = offerPkg ? (offerPkg.tierId ?? "") : (template?.id ?? "");
   const clientName = clients.find((c) => c.id === clientId)?.name ?? "";
 
   return (
     <form action={action} className="grid max-w-3xl gap-5">
-      {useOffer && fromOffer ? (
+      <input type="hidden" name="tierId" value={tierId} />
+      {offer && offerPkg && offer.clientId === clientId ? (
         <>
-          <input type="hidden" name="packageOfferId" value={fromOffer.offerId} />
-          <input type="hidden" name="packageIndex" value={fromOffer.index} />
-          <p className="rounded-md bg-muted/60 p-3 text-sm">
-            Předvyplněno z uložených balíčků: <strong>{fromOffer.name}</strong>. Nabídka se po vytvoření označí
-            jako přijatá.
-          </p>
+          <input type="hidden" name="packageOfferId" value={offer.id} />
+          <input type="hidden" name="packageIndex" value={idx} />
         </>
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
@@ -76,6 +100,7 @@ export function NewSubscriptionForm({
             onChange={(e) => {
               setClientId(e.target.value);
               setWebsiteId("");
+              setChoice(defaultChoice(e.target.value));
             }}
             required
           >
@@ -123,50 +148,61 @@ export function NewSubscriptionForm({
           </div>
         </div>
       ) : null}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="grid gap-1.5">
-          <Label htmlFor="tierId">Šablona balíčku</Label>
-          <NativeSelect
-            id="tierId"
-            name="tierId"
-            value={tierId}
-            onChange={(e) => {
-              setTierId(e.target.value);
-              setUseOffer(false);
-            }}
-          >
+      <div className="grid gap-1.5">
+        <Label htmlFor="package">Balíček</Label>
+        <NativeSelect id="package" value={choice} onChange={(e) => setChoice(e.target.value)}>
+          {clientOffers.map((o) => (
+            <optgroup key={o.id} label={`Spočítané pro ${o.clientName} (${o.label})`}>
+              {offerOptions(o, false)}
+            </optgroup>
+          ))}
+          <optgroup label="Šablony balíčků">
             {tiers.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+              <option key={t.id} value={`tier:${t.id}`}>
+                {t.name} – {czk(t.monthlyPriceHalere)} / měsíc
               </option>
             ))}
-            <option value="">Vlastní (bez šablony)</option>
-          </NativeSelect>
-        </div>
+            <option value="custom">Vlastní (bez šablony)</option>
+          </optgroup>
+          {otherOffers.length ? (
+            <optgroup label="Spočítané pro jiné klienty">
+              {otherOffers.map((o) => offerOptions(o, true))}
+            </optgroup>
+          ) : null}
+        </NativeSelect>
+        <p className="text-xs text-muted-foreground">
+          {offer && offer.clientId === clientId
+            ? "Balíček z kalkulačky – uložená nabídka se po vytvoření označí jako přijatá."
+            : clientId && !clientOffers.length
+              ? "Pro tohoto klienta zatím nejsou uložené balíčky z kalkulačky (Tarify)."
+              : "Název, cenu i obsah můžete níže upravit jen pro tohoto klienta."}
+        </p>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-1.5">
           <Label htmlFor="name">Název balíčku pro klienta</Label>
-          <Input id="name" name="name" defaultValue={tier?.name ?? ""} key={`n-${tierId}-${useOffer}`} required />
+          <Input id="name" name="name" defaultValue={pkg?.name ?? ""} key={`n-${choice}`} required />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="price">Cena (Kč / měsíc)</Label>
+          <Label htmlFor="price">Cena správy (Kč / měsíc)</Label>
           <Input
             id="price"
             name="price"
             inputMode="decimal"
-            defaultValue={tier ? String(tier.monthlyPriceHalere / 100) : ""}
-            key={`p-${tierId}-${useOffer}`}
+            defaultValue={pkg ? String(pkg.monthlyPriceHalere / 100) : ""}
+            key={`p-${choice}`}
             required
           />
         </div>
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor="features">Funkce (jedna na řádek)</Label>
+        <Label htmlFor="features">Co správa obsahuje (jedna věc na řádek)</Label>
         <Textarea
           id="features"
           name="features"
           rows={6}
-          defaultValue={tier?.features.join("\n") ?? ""}
-          key={`f-${tierId}-${useOffer}`}
+          defaultValue={pkg?.features.join("\n") ?? ""}
+          key={`f-${choice}`}
         />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">

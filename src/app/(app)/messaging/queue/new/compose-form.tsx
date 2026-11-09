@@ -14,7 +14,7 @@ type Props = {
   leads: (Option & { status: string; score: number | null; city: string | null })[];
   clients: (Option & { previewUrl: string | null })[];
   tiers: { id: string; name: string; monthlyPriceHalere: number }[];
-  packageOffers: { id: string; clientId: string; label: string }[];
+  packageOffers: { id: string; clientId: string; leadId: string | null; clientName: string; label: string }[];
   initialOfferId: string;
   initialRecipient: string;
   aiEnabled: boolean;
@@ -29,17 +29,17 @@ const LEVELS = [
   {
     key: "offer_l2",
     title: "L2 – návrh + smlouva",
-    text: "Finální návrh, smlouva jako PDF ze šablony a navržený měsíční rozpočet. Založí zakázku.",
+    text: "Finální návrh a pevná jednorázová cena za web. Smlouvu k podpisu přiložíte jako soubor. Založí zakázku.",
   },
   {
     key: "offer_budget",
     title: "Dotaz na rozpočet",
-    text: "Zeptá se klienta, kolik je ochoten měsíčně platit za správu. Z odpovědi pak kalkulačka v Tarifech složí 3 balíčky.",
+    text: "Zeptá se klienta, kolik je ochoten měsíčně platit za správu webu. Z odpovědi kalkulačka v Tarifech složí 3 balíčky správy.",
   },
   {
     key: "offer_l3",
-    title: "L3 – předplatné",
-    text: "Nabídka předplatného se srovnáním 3 balíčků – ideálně z kalkulačky (bez platebního odkazu).",
+    title: "L3 – správa webu",
+    text: "Nabídka měsíční správy webu se srovnáním 3 balíčků z kalkulačky (bez platebního odkazu).",
   },
 ] as const;
 
@@ -55,9 +55,16 @@ export function ComposeForm({
   const [state, action, pending] = useActionState<ActionState, FormData>(composeOffer, {});
   const [recipient, setRecipient] = useState(initialRecipient);
   const [level, setLevel] = useState<(typeof LEVELS)[number]["key"]>(initialOfferId ? "offer_l3" : "offer_l1");
-  const clientOffers = packageOffers.filter((o) => `client:${o.clientId}` === recipient);
-  const [offerId, setOfferId] = useState(initialOfferId);
-  const effectiveOffer = clientOffers.some((o) => o.id === offerId) ? offerId : (clientOffers[0]?.id ?? "");
+  // Saved packages of the selected client (or of the client made from the selected lead) come first.
+  const isRecipients = (o: Props["packageOffers"][number]) =>
+    `client:${o.clientId}` === recipient || (o.leadId !== null && `lead:${o.leadId}` === recipient);
+  const clientOffers = packageOffers.filter(isRecipients);
+  const otherOffers = packageOffers.filter((o) => !isRecipients(o));
+  const [offerId, setOfferId] = useState<string | null>(initialOfferId || null);
+  const effectiveOffer =
+    offerId !== null && (offerId === "" || packageOffers.some((o) => o.id === offerId))
+      ? offerId
+      : (clientOffers[0]?.id ?? "");
   const [tierId, setTierId] = useState(tiers[1]?.id ?? tiers[0]?.id ?? "");
   const tier = tiers.find((t) => t.id === tierId);
   const client = recipient.startsWith("client:")
@@ -76,7 +83,10 @@ export function ComposeForm({
           id="recipient"
           name="recipient"
           value={recipient}
-          onChange={(e) => setRecipient(e.target.value)}
+          onChange={(e) => {
+            setRecipient(e.target.value);
+            setOfferId(null);
+          }}
           required
         >
           <option value="">Vyberte lead nebo klienta…</option>
@@ -153,17 +163,30 @@ export function ComposeForm({
             value={effectiveOffer}
             onChange={(e) => setOfferId(e.target.value)}
           >
-            {clientOffers.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.label}
-              </option>
-            ))}
+            {clientOffers.length ? (
+              <optgroup label="Spočítané pro tohoto adresáta">
+                {clientOffers.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.label}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
             <option value="">Obecné šablony (bez kalkulačky)</option>
+            {otherOffers.length ? (
+              <optgroup label="Spočítané pro jiné klienty (zkopírují se k tomuto adresátovi)">
+                {otherOffers.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.clientName}: {o.label}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
           </NativeSelect>
-          {client && !clientOffers.length ? (
+          {recipient && !clientOffers.length ? (
             <p className="text-xs text-muted-foreground">
               Pro tohoto klienta zatím nejsou uložené balíčky –{" "}
-              <Link className="underline" href={`/settings/tiers?client=${client.id}`}>
+              <Link className="underline" href={client ? `/settings/tiers?client=${client.id}` : "/settings/tiers"}>
                 spočítat v kalkulačce
               </Link>
               .
@@ -172,10 +195,27 @@ export function ComposeForm({
         </div>
       ) : null}
 
-      {level === "offer_l2" || (level === "offer_l3" && !effectiveOffer) ? (
+      {level === "offer_l2" ? (
+        <div className="grid gap-3">
+          <div className="grid max-w-xs grid-cols-1 gap-1.5">
+            <Label htmlFor="webPrice">Cena za vytvoření webu (Kč, jednorázově)</Label>
+            <Input id="webPrice" name="webPrice" inputMode="decimal" placeholder="např. 4990" required />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Smlouvu k podpisu nahrajete jako přílohu (PDF/Word) v dalším kroku ve frontě ke schválení – do textu
+            e-mailu se nevkládá. Měsíční správu nabídnete později (Dotaz na rozpočet → L3).
+          </p>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="generateContract" />
+            Přiložit i smlouvu vygenerovanou ze šablony (místo vlastního souboru)
+          </label>
+        </div>
+      ) : null}
+
+      {level === "offer_l3" && !effectiveOffer ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid grid-cols-1 gap-1.5">
-            <Label htmlFor="tierId">Navržený balíček (šablona)</Label>
+            <Label htmlFor="tierId">Doporučený balíček správy (šablona)</Label>
             <NativeSelect
               id="tierId"
               name="tierId"

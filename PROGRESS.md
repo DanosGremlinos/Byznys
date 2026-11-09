@@ -459,3 +459,32 @@ Branch `claude/charming-noether-cwusyd` (based on `claude/busy-clarke-49tnmm`). 
 ### Checks
 - `npm run typecheck` ✅, `npm test` ✅ (new: Resend signature — valid, rotated keys, tampered, wrong secret,
   stale, missing headers; case-insensitive headers).
+
+## Úprava 3 — Zakázky, balíčky správy a e-maily Webyz ✅ (čeká na review)
+
+- **Odebrat zakázku**: tlačítko na detailu zakázky (s potvrzením). Smaže jen zakázku (web); klient, lead, e-maily,
+  projekty v Builderu a uložené balíčky zůstanou. Zakázku s předplatným odebrat nejde (drží historii plateb).
+- **Balíčky = měsíční správa webu** (hosting, zabezpečení, zálohy, úpravy obsahu), ne tvorba webu. Šablony
+  Základ / Standard / Premium mají nový obsah (Premium = vše ze Standardu + 3 viditelné věci navíc); ceny beze změny.
+- **Mazání uložených balíčků** (ikona koše v tabulce na Tarifech i na detailu zakázky).
+- **Nové předplatné**: výběr „Balíček“ nabízí uložené balíčky z kalkulačky (nejdřív vybraného klienta, pak šablony,
+  pak balíčky jiných klientů) a předvyplní název, cenu i obsah.
+- **L3**: uložené balíčky jdou vybrat i pro lead (vezmou se balíčky klienta z toho leadu; klient se případně založí);
+  balíčky jiného klienta se k adresátovi zkopírují.
+- **L2 = pevná jednorázová cena za web** (`{{webPrice}}`, povinné pole), žádné měsíční balíčky. Smlouva se do textu
+  nevkládá: vlastní smlouvu (PDF/Word, max. 4 MB) nahrajete ve frontě ke schválení jako přílohu; uloží se do DB
+  (`email_attachments.content`) a odešle jako příloha. Vygenerovaná smlouva ze šablony je jen volitelná.
+- **E-maily přepsány pod značku Webyz** (dva studenti, levné weby, pomoc s zákazníky): L1, L2, dotaz na rozpočet,
+  L3 a upomínky (`src/config/email-templates.ts`); AI prompt zná Webyz a pravidlo „smlouvu nevkládat“.
+
+### Database change (needs a migration) ⚠️
+- `0003_webyz_templates_care_tiers.sql` (jen data): přepíše výchozí šablony e-mailů (podle `key`) a obsah šablon
+  balíčků Základ/Standard/Premium (podle názvu; ceny nemění).
+- `0004_email_attachment_files.sql`: nový sloupec `email_attachments.content` (bytea).
+- Produkce potřebuje `npm run db:migrate` proti produkční větvi spolu s deployem.
+
+### Checks
+- `npm run typecheck` ✅, `eslint` ✅, `npm test` ✅ (105; nové: L2 s cenou bez smlouvy, nahraná příloha se odešle,
+  L3 pro lead, kopie balíčků jinému klientovi, mazání balíčků, odebrání zakázky).
+- Prohlížeč (lokální DB): nové předplatné s výběrem balíčků, L2 s cenou → fronta → nahrání smlouvy → stažení,
+  odebrání zakázky z přehledu, smazání uložených balíčků.

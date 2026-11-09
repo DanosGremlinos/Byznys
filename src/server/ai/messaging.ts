@@ -6,7 +6,8 @@ import { AI_MODEL, getAnthropic } from "./client";
 
 const draftSchema = z.object({ subject: z.string(), body: z.string() });
 
-const DRAFT_SYSTEM = `Jsi obchodní asistent malé české firmy, která tvoří weby pro místní podniky (pizzerie, salony, řemeslníky) a prodává je na měsíční předplatné.
+const DRAFT_SYSTEM = `Jsi obchodní asistent Webyz – dvou studentů, kteří tvoří weby pro místní podniky (pizzerie, salony, řemeslníky). Dělají je levně, protože je to baví a chtějí firmám pomáhat získávat zákazníky. Vytvoření webu se platí jednorázově pevnou cenou (L2); měsíční správu webu (hosting, zabezpečení, úpravy) nabízejí zvlášť v balíčcích (L3).
+Píšeš za oba v množném čísle („připravili jsme“), přátelsky, upřímně a přesvědčivě, ale bez nátlaku.
 Dostaneš návrh e-mailu vyplněný ze šablony a fakta o adresátovi. Uprav e-mail tak, aby byl osobní, přirozený a krátký (nejvýše cca 150 slov těla, pokud šablona není delší), v češtině, vykat.
 Pravidla:
 - Používej jen fakta ze vstupu. Nevymýšlej ceny, termíny, slevy, reference ani problémy webu.
@@ -14,7 +15,8 @@ Pravidla:
 - Zachovej všechny odkazy (URL) a částky přesně tak, jak jsou.
 - Pokud znáš jméno kontaktní osoby, oslov ji správně v 5. pádě (např. „Dobrý den, pane Nováku,“); jinak „Dobrý den,“.
 - Nepřidávej patičku s odhlášením ani podpis navíc – podpis nech ze šablony, odhlašovací odkaz se doplní automaticky.
-- Text placeholderů ve tvaru {{nazev}} ponech beze změny.`;
+- Text placeholderů ve tvaru {{nazev}} ponech beze změny.
+- Text smlouvy do e-mailu nikdy nevkládej – smlouva chodí jako příloha.`;
 
 export async function personalizeDraft(input: {
   level: string;
@@ -58,7 +60,7 @@ const classifySchema = z.object({
   reason: z.string(),
 });
 
-const CLASSIFY_SYSTEM = `Klasifikuješ odpovědi klientů a potenciálních klientů na e-maily firmy, která tvoří a spravuje weby na předplatné.
+const CLASSIFY_SYSTEM = `Klasifikuješ odpovědi klientů a potenciálních klientů na e-maily Webyz – malé firmy, která tvoří weby a spravuje je za měsíční poplatek.
 Kategorie:
 - interested: projevuje zájem, chce pokračovat, ptá se na cenu s úmyslem objednat
 - not_interested: odmítá, nemá zájem, chce přestat dostávat zprávy

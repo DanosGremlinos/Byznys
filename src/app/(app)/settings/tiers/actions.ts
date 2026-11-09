@@ -4,7 +4,7 @@ import { refresh } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import { requireAdmin } from "@/lib/auth-guard";
-import { savePackageOffer } from "@/server/billing/package-offers";
+import { deletePackageOffer, savePackageOffer } from "@/server/billing/package-offers";
 import { upsertTier } from "@/server/billing/subscriptions";
 
 export type TierState = { ok?: string; error?: string };
@@ -96,4 +96,16 @@ export async function savePackageOfferAction(_prev: OfferState, formData: FormDa
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Uložení selhalo." };
   }
+}
+
+/** Deletes saved packages (unwanted or test calculations). */
+export async function deletePackageOfferAction(id: string): Promise<OfferState> {
+  await requireAdmin();
+  try {
+    await deletePackageOffer(db, id);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Smazání selhalo." };
+  }
+  refresh();
+  return { ok: "Smazáno." };
 }

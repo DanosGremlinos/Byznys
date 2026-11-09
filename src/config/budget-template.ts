@@ -8,12 +8,13 @@ export const BUDGET_TEMPLATE = {
   subject: "Správa webu {{businessName}} – jaký měsíční rozpočet vám vyhovuje?",
   body: `Dobrý den{{contactGreeting}},
 
-děkuji za dosavadní spolupráci na novém webu. Než vám pošlu nabídku jeho měsíční správy, rád bych ji připravil přesně podle vás.
+děkujeme za spolupráci na novém webu! Aby web i po spuštění fungoval bez starostí, nabízíme jeho měsíční správu – hosting a doménu, zabezpečení, zálohy, aktualizace a úpravy obsahu (třeba nové fotky, ceník nebo otevírací doba).
 
-Kolik byste byli ochotni měsíčně investovat do správy webu? Ta zahrnuje hosting, doménu, zabezpečení, pravidelné aktualizace a úpravy obsahu. Stačí odepsat orientační částku – podle ní vám připravím balíčky na míru.
+Nechceme vám vnucovat hotový ceník, proto se rovnou ptáme: kolik byste byli ochotni do správy webu měsíčně investovat? Stačí odepsat orientační částku a podle ní vám připravíme balíčky na míru.
 
 S pozdravem
 {{senderName}}
+Webyz – weby pro místní firmy
 
 ---
 Odhlásit se: {{unsubscribeUrl}}`,

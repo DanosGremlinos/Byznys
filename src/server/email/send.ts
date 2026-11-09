@@ -70,7 +70,9 @@ export async function sendApprovedEmail(
     const files: NonNullable<OutgoingEmail["attachments"]> = [];
     for (const a of attachments) {
       const contractId = a.url.match(CONTRACT_PDF)?.[1];
-      if (contractId) {
+      if (a.content) {
+        files.push({ filename: a.filename, contentType: a.contentType, content: a.content });
+      } else if (contractId) {
         const contract = await db.query.contracts.findFirst({ where: eq(contracts.id, contractId) });
         if (!contract) throw new Error("Smlouva k příloze nenalezena.");
         files.push({

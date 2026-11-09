@@ -119,6 +119,8 @@ describe.skipIf(!url)("messaging (DB)", () => {
       leadId,
       level: "offer_l2",
       previewUrl: "https://nahled.test/l2",
+      webPriceHalere: 599_000,
+      generateContract: true,
       useAi: false,
     });
     expect(warnings.join(" ")).toContain("vytvořen klient");
@@ -126,6 +128,7 @@ describe.skipIf(!url)("messaging (DB)", () => {
     expect(client).toBeTruthy();
     const contract = await db.query.contracts.findFirst({ where: eq(contracts.clientId, client!.id) });
     expect(contract?.body).toContain(client!.businessName);
+    expect(contract?.body).toContain("5 990 Kč");
     const [att] = await db.select().from(emailAttachments).where(eq(emailAttachments.emailId, emailId));
     expect(att.url).toBe(`/api/contracts/${contract!.id}/pdf`);
     const result = await sendApprovedEmail(db, provider, emailId);
@@ -133,6 +136,33 @@ describe.skipIf(!url)("messaging (DB)", () => {
     const pdf = provider.sent[0].attachments?.[0];
     expect(pdf?.contentType).toBe("application/pdf");
     expect(Buffer.from(pdf!.content.slice(0, 5)).toString()).toBe("%PDF-");
+  });
+
+  it("sends a file uploaded to the draft (own contract for signing) as an attachment", async () => {
+    const provider = new FakeProvider();
+    const { emailId } = await createOfferDraft(db, {
+      leadId,
+      level: "offer_l2",
+      previewUrl: "https://nahled.test/l2b",
+      webPriceHalere: 599_000,
+      useAi: false,
+    });
+    expect(await db.select().from(emailAttachments).where(eq(emailAttachments.emailId, emailId))).toHaveLength(0);
+    const bytes = new TextEncoder().encode("%PDF-1.4 vlastni smlouva");
+    await db.insert(emailAttachments).values({
+      emailId,
+      url: "/api/attachments/x",
+      filename: "smlouva.pdf",
+      contentType: "application/pdf",
+      sizeBytes: bytes.length,
+      content: bytes,
+    });
+    const result = await sendApprovedEmail(db, provider, emailId);
+    expect(result.ok).toBe(true);
+    const sent = provider.sent[0].attachments ?? [];
+    expect(sent).toHaveLength(1);
+    expect(sent[0].filename).toBe("smlouva.pdf");
+    expect(Buffer.from(sent[0].content).toString()).toBe("%PDF-1.4 vlastni smlouva");
   });
 
   it("links an inbound reply to its thread by In-Reply-To, and ignores duplicates", async () => {

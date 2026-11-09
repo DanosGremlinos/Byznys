@@ -136,6 +136,7 @@ async function Queue({ searchParams }: Pick<PageProps<"/messaging/queue">, "sear
                   bodyText: selected.bodyText,
                   status: selected.status,
                   error: selected.error,
+                  kind: selected.kind,
                 }}
                 blacklisted={selected.blacklisted}
                 attachments={selected.attachments.map((a) => ({

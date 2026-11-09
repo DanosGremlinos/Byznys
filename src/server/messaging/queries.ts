@@ -60,7 +60,10 @@ export async function getQueueEmail(id: string) {
   await requireAdmin();
   const email = await db.query.emails.findFirst({
     where: eq(emails.id, id),
-    with: { attachments: true, thread: { with: { client: true, lead: true } } },
+    with: {
+      attachments: { columns: { content: false } },
+      thread: { with: { client: true, lead: true } },
+    },
   });
   if (!email) return null;
   const black = await blacklistedAmong(db, [email.toAddress]);
