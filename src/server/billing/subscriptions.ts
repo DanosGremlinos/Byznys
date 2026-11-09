@@ -1,17 +1,7 @@
 import "server-only";
-import { and, eq, lte } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import {
-  clients,
-  dunningRuns,
-  dunningSteps,
-  emails,
-  leads,
-  subscriptionEvents,
-  subscriptionTiers,
-  subscriptions,
-  websites,
-} from "@/db/schema";
+import { clients, leads, subscriptionEvents, subscriptionTiers, subscriptions, websites } from "@/db/schema";
 import { extendPaidUntil } from "@/lib/dates";
 import { cancelDunningFor, stopDunningIfPaid } from "./dunning";
 
@@ -172,56 +162,11 @@ export async function cancelSubscription(db: Database, subscriptionId: string, r
   await cancelDunningFor(db, sub.id);
 }
 
-/** Days the final reminder gives the client to pay before the site may be suspended (see its text). */
-export const SUSPENSION_NOTICE_DAYS = 3;
-
-/**
- * Suspending the site of a paying client is a contractual sanction: it is allowed only after the
- * written final notice that warned about it (reminder 3) was sent and its deadline passed. Without
- * that, suspension could itself be a breach of contract. Cancelled subscriptions are not restricted.
- */
-export async function suspensionBlockReason(
-  db: Database,
-  websiteId: string,
-  now: Date = new Date(),
-): Promise<string | null> {
-  const sub = await db.query.subscriptions.findFirst({ where: eq(subscriptions.websiteId, websiteId) });
-  if (!sub || sub.status === "cancelled") return null;
-  const deadline = new Date(now.getTime() - SUSPENSION_NOTICE_DAYS * 86_400_000);
-  const [notice] = await db
-    .select({ id: emails.id })
-    .from(dunningSteps)
-    .innerJoin(dunningRuns, eq(dunningRuns.id, dunningSteps.runId))
-    .innerJoin(emails, eq(emails.id, dunningSteps.emailId))
-    .where(
-      and(
-        eq(dunningRuns.subscriptionId, sub.id),
-        eq(dunningSteps.step, 3),
-        eq(emails.status, "sent"),
-        lte(emails.sentAt, deadline),
-      ),
-    )
-    .limit(1);
-  if (notice) return null;
-  return `Web lze pozastavit až ${SUSPENSION_NOTICE_DAYS} dny po odeslání poslední výzvy (upomínka 3), která na pozastavení upozorňuje. Jinak hrozí porušení smlouvy z vaší strany.`;
-}
-
-/**
- * Manual website suspension / reactivation (after the final reminder's deadline). Returns an error
- * message when suspension is not allowed yet, otherwise null.
- */
-export async function setWebsiteSuspended(
-  db: Database,
-  websiteId: string,
-  suspended: boolean,
-): Promise<string | null> {
+/** Manual website suspension / reactivation (e.g. after the final reminder). */
+export async function setWebsiteSuspended(db: Database, websiteId: string, suspended: boolean) {
   const web = await db.query.websites.findFirst({ where: eq(websites.id, websiteId) });
   if (!web) throw new Error("Web nenalezen");
-  if (suspended ? web.status === "suspended" : web.status !== "suspended") return null;
-  if (suspended) {
-    const blocked = await suspensionBlockReason(db, websiteId);
-    if (blocked) return blocked;
-  }
+  if (suspended ? web.status === "suspended" : web.status !== "suspended") return;
   await db
     .update(websites)
     .set({ status: suspended ? "suspended" : "live" })
@@ -235,7 +180,6 @@ export async function setWebsiteSuspended(
       note: suspended ? "Web pozastaven ručně" : "Web znovu spuštěn",
     });
   }
-  return null;
 }
 
 // ---------------------------------------------------------------------------

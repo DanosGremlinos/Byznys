@@ -17,7 +17,6 @@ import {
 } from "@/db/schema";
 import type { ScoreFactorResult } from "@/db/schema/types";
 import { formatCzk, formatDate, pragueToday } from "@/lib/format";
-import { DEFAULT_REGISTER } from "@/lib/legal";
 import { packageComparisonText } from "@/lib/package-calculator";
 import { slugify } from "@/db/seed-data";
 import { aiConfigured } from "@/server/ai/client";
@@ -132,11 +131,6 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
   const toAddress = client?.email ?? lead?.email;
   if (!toAddress) throw new Error("Adresát nemá e-mailovou adresu.");
   if (await isBlacklisted(db, toAddress)) warnings.push("Adresa je na blacklistu – e-mail nepůjde odeslat.");
-  if (lead && !client && !lead.contactConsentAt) {
-    warnings.push(
-      "Lead zatím nedal souhlas s obchodními e-maily – návrh půjde odeslat až po zaznamenání souhlasu v detailu leadu (nebo když lead napíše první).",
-    );
-  }
 
   const website = client
     ? await db.query.websites.findFirst({
@@ -280,7 +274,6 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
         providerName: process.env.PROVIDER_NAME ?? senderName(),
         providerIco: process.env.PROVIDER_ICO ?? null,
         providerAddress: process.env.PROVIDER_ADDRESS ?? null,
-        providerRegister: process.env.PROVIDER_REGISTER || DEFAULT_REGISTER,
         clientName: client.businessName,
         clientIco: client.ico,
         clientAddress: client.address,

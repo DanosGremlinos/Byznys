@@ -8,7 +8,6 @@ import { addToBlacklist } from "@/server/email/blacklist";
 import { ingestInbound } from "@/server/email/inbound";
 import type { EmailProvider, OutgoingEmail } from "@/server/email/provider";
 import { sendApprovedEmail } from "@/server/email/send";
-import { eraseLead, exportLead, purgeStaleLeads, recordConsent } from "@/server/leads/privacy";
 import { createOfferDraft } from "@/server/messaging/compose";
 import { setupTestDb } from "./helpers/db";
 
@@ -58,47 +57,6 @@ describe.skipIf(!url)("messaging (DB)", () => {
     expect(provider.sent).toHaveLength(0);
   });
 
-  it("blocks an offer to a lead without consent, keeps the draft, sends once consent is recorded", async () => {
-    const provider = new FakeProvider();
-    const { emailId, warnings } = await createOfferDraft(db, {
-      leadId,
-      level: "offer_l1",
-      previewUrl: "https://nahled.test/consent",
-      useAi: false,
-    });
-    expect(warnings.join(" ")).toContain("souhlas");
-    const blocked = await sendApprovedEmail(db, provider, emailId);
-    expect(blocked).toMatchObject({ ok: false, status: "blocked" });
-    expect(blocked.ok ? "" : blocked.error).toContain("480/2004");
-    expect(provider.sent).toHaveLength(0);
-    expect((await db.query.emails.findFirst({ where: eq(emails.id, emailId) }))?.status).toBe(
-      "pending_approval",
-    );
-    await recordConsent(db, leadId, "telefonicky s majitelem");
-    const ok = await sendApprovedEmail(db, provider, emailId);
-    expect(ok.ok).toBe(true);
-  });
-
-  it("refuses to send without the sender's identification (§ 435 OZ)", async () => {
-    const provider = new FakeProvider();
-    const { emailId } = await createOfferDraft(db, {
-      leadId,
-      level: "offer_l1",
-      previewUrl: "https://nahled.test/ico",
-      useAi: false,
-    });
-    const saved = process.env.PROVIDER_ICO;
-    delete process.env.PROVIDER_ICO;
-    try {
-      const r = await sendApprovedEmail(db, provider, emailId);
-      expect(r).toMatchObject({ ok: false, status: "invalid" });
-      expect(r.ok ? "" : r.error).toContain("PROVIDER_ICO");
-    } finally {
-      process.env.PROVIDER_ICO = saved;
-    }
-    expect(provider.sent).toHaveLength(0);
-  });
-
   it("sends only via explicit approval, once, with an unsubscribe link and threading headers", async () => {
     const provider = new FakeProvider();
     const { emailId } = await createOfferDraft(db, {
@@ -114,9 +72,6 @@ describe.skipIf(!url)("messaging (DB)", () => {
     expect(sent.text).toMatch(/https:\/\/app\.test\/unsubscribe\/[\w-]+\.[\w-]+/);
     expect(sent.headers?.["List-Unsubscribe"]).toMatch(/^<https:\/\/app\.test\/unsubscribe\//);
     expect(sent.messageId).toMatch(/^<[0-9a-f-]+@weby\.test>$/);
-    expect(sent.text).toContain("Toto je obchodní sdělení.");
-    expect(sent.text).toContain("IČO 12345678");
-    expect(sent.text).toContain("https://app.test/ochrana-udaju");
     const again = await sendApprovedEmail(db, provider, emailId);
     expect(again.ok).toBe(false);
     expect(provider.sent).toHaveLength(1);
@@ -222,37 +177,5 @@ describe.skipIf(!url)("messaging (DB)", () => {
       text: "?",
     });
     expect(unknown.threadId).not.toBe(known.threadId);
-  });
-
-  it("exports and erases a lead (GDPR) and purges stale leads without consent", async () => {
-    const [other] = await db
-      .select()
-      .from(leads)
-      .where(and(eq(leads.status, "new"), sql`${leads.id} <> ${leadId}`, sql`${leads.email} is not null`))
-      .limit(1);
-    const exported = await exportLead(db, other.id);
-    expect(exported?.lead.name).toBe(other.name);
-    expect(await eraseLead(db, other.id, { blacklist: true })).toBe(true);
-    expect(await db.query.leads.findFirst({ where: eq(leads.id, other.id) })).toBeUndefined();
-    const bl = await db.query.emailBlacklist.findFirst({
-      where: eq(emailBlacklist.email, other.email!.toLowerCase()),
-    });
-    expect(bl).toBeTruthy();
-
-    const longAgo = new Date(Date.now() - 400 * 86_400_000);
-    const [stale] = await db
-      .insert(leads)
-      .values({ name: "Starý lead", status: "new", createdAt: longAgo, updatedAt: longAgo })
-      .returning();
-    const [consented] = await db
-      .insert(leads)
-      .values({ name: "Se souhlasem", contactConsentAt: longAgo, createdAt: longAgo, updatedAt: longAgo })
-      .returning();
-    await db.update(leads).set({ updatedAt: longAgo }).where(eq(leads.id, stale.id));
-    await db.update(leads).set({ updatedAt: longAgo }).where(eq(leads.id, consented.id));
-    const purged = await purgeStaleLeads(db);
-    expect(purged).toBeGreaterThanOrEqual(1);
-    expect(await db.query.leads.findFirst({ where: eq(leads.id, stale.id) })).toBeUndefined();
-    expect(await db.query.leads.findFirst({ where: eq(leads.id, consented.id) })).toBeTruthy();
   });
 });

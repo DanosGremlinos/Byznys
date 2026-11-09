@@ -1,14 +1,4 @@
-import {
-  ArrowLeft,
-  Download,
-  ExternalLink,
-  Hammer,
-  Mail,
-  MapPin,
-  RefreshCw,
-  ShieldCheck,
-  Trash2,
-} from "lucide-react";
+import { ArrowLeft, ExternalLink, Hammer, Mail, MapPin, RefreshCw } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -18,28 +8,20 @@ import { FactorTable, ScoreBadge } from "@/components/leads/score";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCzk, formatDate, formatDateTime } from "@/lib/format";
-import { leadRetentionDays } from "@/lib/legal";
 import { LEAD_STATUS_LABELS } from "@/lib/status-labels";
 import { formatOpeningHours } from "@/server/builder/prompt";
 import { getLead } from "@/server/leads/queries";
 import { loadResearchTemplate, renderResearchPrompt } from "@/server/leads/research-prompt";
 import { SCORING_VERSION } from "@/server/leads/scoring";
-import {
-  eraseLeadAction,
-  goToBuilderFromLead,
-  reanalyzeLead,
-  recordLeadConsent,
-  revokeLeadConsent,
-} from "../actions";
+import { goToBuilderFromLead, reanalyzeLead } from "../actions";
 import { ExplainScore } from "./explain";
 
 export const metadata: Metadata = { title: "Detail leadu" };
 export const maxDuration = 300;
 
-export default function LeadDetailPage({ params, searchParams }: PageProps<"/leads/[id]">) {
+export default function LeadDetailPage({ params }: PageProps<"/leads/[id]">) {
   return (
     <>
       <Link
@@ -50,7 +32,7 @@ export default function LeadDetailPage({ params, searchParams }: PageProps<"/lea
         Zpět na leady
       </Link>
       <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
-        <LeadDetail params={params} searchParams={searchParams} />
+        <LeadDetail params={params} />
       </Suspense>
     </>
   );
@@ -67,9 +49,8 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 const yesNo = (v: boolean | null) => (v === null ? "–" : v ? "ano" : "ne");
 
-async function LeadDetail({ params, searchParams }: PageProps<"/leads/[id]">) {
+async function LeadDetail({ params }: Pick<PageProps<"/leads/[id]">, "params">) {
   const { id } = await params;
-  const { consentError } = await searchParams;
   const data = await getLead(id);
   if (!data) notFound();
   const { lead, photos, reviews, analysis } = data;
@@ -179,81 +160,6 @@ async function LeadDetail({ params, searchParams }: PageProps<"/leads/[id]">) {
               </Row>
               <Row label="Přidáno">{formatDate(lead.createdAt)}</Row>
             </dl>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="size-4" />
-              Souhlas a osobní údaje
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 text-sm">
-            {typeof consentError === "string" ? <p className="text-destructive">{consentError}</p> : null}
-            {lead.contactConsentAt ? (
-              <div className="grid gap-2">
-                <p>
-                  <Badge variant="outline" className="border-emerald-600 text-emerald-700">
-                    Souhlas s nabídkami e-mailem
-                  </Badge>{" "}
-                  od {formatDateTime(lead.contactConsentAt)}
-                  {lead.contactConsentNote ? ` – ${lead.contactConsentNote}` : ""}
-                </p>
-                <form action={revokeLeadConsent.bind(null, lead.id)}>
-                  <Button type="submit" variant="outline" size="sm">
-                    Odvolat souhlas
-                  </Button>
-                </form>
-              </div>
-            ) : (
-              <form action={recordLeadConsent.bind(null, lead.id)} className="grid gap-2">
-                <p className="text-muted-foreground">
-                  Nabídku e-mailem smíte poslat jen se souhlasem (zák. č. 480/2004 Sb. – platí i pro firmy).
-                  Oslovte podnik nejdřív telefonicky nebo osobně, a když souhlasí, zapište to sem. Bez
-                  souhlasu aplikace nabídku neodešle, pokud lead nenapíše první.
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    name="note"
-                    placeholder="Např. telefonicky s majitelem, souhlasil se zasláním nabídky"
-                    required
-                    minLength={3}
-                    maxLength={500}
-                  />
-                  <Button type="submit" size="sm">
-                    Zaznamenat souhlas
-                  </Button>
-                </div>
-              </form>
-            )}
-            <div className="flex flex-wrap items-center gap-2 border-t pt-4">
-              <Button asChild variant="outline" size="sm">
-                <a href={`/api/leads/${lead.id}/export`}>
-                  <Download />
-                  Export údajů (JSON)
-                </a>
-              </Button>
-            </div>
-            <form action={eraseLeadAction.bind(null, lead.id)} className="grid gap-2">
-              <p className="text-muted-foreground">
-                Výmaz na žádost (GDPR): smaže lead, fotky, recenze, analýzy a jeho e-mailová vlákna. Leady bez
-                souhlasu a bez klienta se mažou automaticky po {leadRetentionDays()} dnech nečinnosti.
-              </p>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" name="blacklist" defaultChecked /> Ponechat adresu na blacklistu (už ho
-                nikdy neoslovit)
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" name="confirm" required /> Opravdu smazat
-              </label>
-              <div>
-                <Button type="submit" variant="destructive" size="sm">
-                  <Trash2 />
-                  Smazat lead
-                </Button>
-              </div>
-            </form>
           </CardContent>
         </Card>
 

@@ -42,11 +42,6 @@ export const builderAssets = pgTable(
     sortOrder: integer().notNull().default(0),
     isHero: boolean().notNull().default(false),
     isSelected: boolean().notNull().default(true),
-    /**
-     * The owner confirmed the right to use this asset on the client's live site (the client provided or
-     * approved it; for reviews: the reviewer agreed). Unconfirmed assets are only for a non-public demo.
-     */
-    rightsConfirmed: boolean().notNull().default(false),
     leadPhotoId: uuid().references(() => leadPhotos.id, { onDelete: "set null" }),
     leadReviewId: uuid().references(() => leadReviews.id, { onDelete: "set null" }),
     createdAt: createdAt(),

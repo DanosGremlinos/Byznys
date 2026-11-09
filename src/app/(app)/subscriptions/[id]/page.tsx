@@ -17,7 +17,7 @@ import { CancelForm, PackageForm, PaymentForm } from "./forms";
 
 export const metadata: Metadata = { title: "Předplatné" };
 
-export default function SubscriptionDetailPage({ params, searchParams }: PageProps<"/subscriptions/[id]">) {
+export default function SubscriptionDetailPage({ params }: PageProps<"/subscriptions/[id]">) {
   return (
     <>
       <Link
@@ -28,15 +28,14 @@ export default function SubscriptionDetailPage({ params, searchParams }: PagePro
         Všechna předplatné
       </Link>
       <Suspense fallback={<Skeleton className="h-[600px] w-full" />}>
-        <Detail params={params} searchParams={searchParams} />
+        <Detail params={params} />
       </Suspense>
     </>
   );
 }
 
-async function Detail({ params, searchParams }: PageProps<"/subscriptions/[id]">) {
+async function Detail({ params }: Pick<PageProps<"/subscriptions/[id]">, "params">) {
   const { id } = await params;
-  const { suspendError } = await searchParams;
   const [sub, tiers] = await Promise.all([getSubscriptionDetail(id), listTiers()]);
   if (!sub) notFound();
   const today = pragueToday();
@@ -74,14 +73,7 @@ async function Detail({ params, searchParams }: PageProps<"/subscriptions/[id]">
               </Button>
             </form>
           ) : null}
-          <form
-            action={suspendWebsiteAction.bind(
-              null,
-              sub.website.id,
-              sub.website.status !== "suspended",
-              `/subscriptions/${sub.id}`,
-            )}
-          >
+          <form action={suspendWebsiteAction.bind(null, sub.website.id, sub.website.status !== "suspended")}>
             <Button
               type="submit"
               variant={sub.website.status === "suspended" ? "default" : "outline"}
@@ -95,9 +87,6 @@ async function Detail({ params, searchParams }: PageProps<"/subscriptions/[id]">
           </Button>
         </div>
       </div>
-      {typeof suspendError === "string" ? (
-        <p className="rounded-md bg-amber-50 p-2 text-sm text-amber-800">{suspendError}</p>
-      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

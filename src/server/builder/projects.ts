@@ -178,12 +178,7 @@ export async function generatePromptVersion(projectId: string) {
   const photos = selected
     .filter((a) => a.kind === "photo" && a.url)
     .sort((a, b) => Number(b.isHero) - Number(a.isHero))
-    .map((a) => ({
-      url: a.url!,
-      isHero: a.isHero,
-      attribution: a.leadPhoto?.attribution ?? null,
-      rightsConfirmed: a.rightsConfirmed,
-    }));
+    .map((a) => ({ url: a.url!, isHero: a.isHero, attribution: a.leadPhoto?.attribution ?? null }));
   const logo = selected.find((a) => a.kind === "logo" && a.url);
   const content = buildSitePrompt({
     projectName: project.name,
@@ -193,15 +188,9 @@ export async function generatePromptVersion(projectId: string) {
     customInstructions: project.customInstructions,
     photos,
     logoUrl: logo?.url ?? null,
-    logoRightsConfirmed: logo?.rightsConfirmed ?? false,
     reviews: selected
       .filter((a) => a.kind === "review" && a.leadReview)
-      .map((a) => ({
-        author: a.leadReview!.author,
-        rating: a.leadReview!.rating,
-        text: a.leadReview!.text,
-        rightsConfirmed: a.rightsConfirmed,
-      })),
+      .map((a) => ({ author: a.leadReview!.author, rating: a.leadReview!.rating, text: a.leadReview!.text })),
     documents: selected
       .filter((a) => a.kind === "document" && a.url)
       .map((a) => ({ url: a.url!, filename: a.filename, contentType: a.contentType })),
