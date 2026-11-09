@@ -77,6 +77,31 @@ export async function latestOfferFor(db: Database, clientId: string, websiteId?:
   return (websiteId ? rows.find((r) => r.websiteId === websiteId) : undefined) ?? rows[0] ?? null;
 }
 
+/** Deletes a saved set of packages. A subscription created from it stays as it is. */
+export async function deletePackageOffer(db: Database, id: string) {
+  const [row] = await db.delete(packageOffers).where(eq(packageOffers.id, id)).returning({ id: packageOffers.id });
+  if (!row) throw new Error("Uložené balíčky nenalezeny.");
+}
+
+/**
+ * Packages saved for another client, reused for this one: copied to this client (and its newest job), so the
+ * original offer's status (emailed, chosen) stays untouched.
+ */
+export async function copyOfferToClient(db: Database, offer: PackageOffer, clientId: string): Promise<PackageOffer> {
+  if (offer.clientId === clientId) return offer;
+  const job = await db.query.websites.findFirst({
+    where: eq(websites.clientId, clientId),
+    orderBy: desc(websites.updatedAt),
+  });
+  return savePackageOffer(db, {
+    clientId,
+    websiteId: job?.id ?? null,
+    budgetHalere: offer.budgetHalere,
+    packages: offer.packages,
+    note: offer.note,
+  });
+}
+
 export async function markOfferEmailed(db: Database, offerId: string, emailId: string) {
   await db.update(packageOffers).set({ emailId, updatedAt: new Date() }).where(eq(packageOffers.id, offerId));
 }
@@ -98,7 +123,7 @@ export async function listPackageOffers(db: Database, filter: { clientId?: strin
         : undefined,
     orderBy: desc(packageOffers.createdAt),
     with: {
-      client: { columns: { id: true, businessName: true } },
+      client: { columns: { id: true, businessName: true, leadId: true } },
       website: { columns: { id: true, name: true, domain: true } },
       email: { columns: { id: true, status: true, sentAt: true } },
       subscription: { columns: { id: true, name: true, priceHalere: true, status: true } },

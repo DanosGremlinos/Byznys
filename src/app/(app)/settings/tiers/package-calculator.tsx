@@ -70,7 +70,7 @@ export function PackageCalculator({
     <form action={action} className="grid grid-cols-1 gap-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="grid gap-1.5">
-          <Label htmlFor="budget">Kolik je klient ochoten platit (Kč / měsíc)</Label>
+          <Label htmlFor="budget">Kolik je klient ochoten platit za správu (Kč / měsíc)</Label>
           <Input
             id="budget"
             name="budget"
@@ -166,7 +166,7 @@ export function PackageCalculator({
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor={`pkg-features-${i}`}>Co obsahuje (jedna věc na řádek)</Label>
+                  <Label htmlFor={`pkg-features-${i}`}>Co správa obsahuje (jedna věc na řádek)</Label>
                   <Textarea
                     id={`pkg-features-${i}`}
                     rows={7}

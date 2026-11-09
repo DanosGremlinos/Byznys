@@ -1,5 +1,6 @@
 import {
   boolean,
+  customType,
   index,
   integer,
   jsonb,
@@ -90,6 +91,13 @@ export const emails = pgTable(
   ],
 );
 
+/** Raw file bytes (Postgres bytea). */
+const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
+  dataType: () => "bytea",
+  toDriver: (v) => Buffer.from(v),
+  fromDriver: (v) => new Uint8Array(v),
+});
+
 export const emailAttachments = pgTable(
   "email_attachments",
   {
@@ -102,6 +110,8 @@ export const emailAttachments = pgTable(
     filename: text().notNull(),
     contentType: text().notNull(),
     sizeBytes: integer(),
+    /** Uploaded file stored in the database (e.g. the contract for signing); `url` is then /api/attachments/<id>. */
+    content: bytea(),
     createdAt: createdAt(),
   },
   (t) => [index().on(t.emailId)],

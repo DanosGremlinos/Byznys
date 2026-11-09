@@ -20,11 +20,11 @@ export default function TiersPage({ searchParams }: PageProps<"/settings/tiers">
     <>
       <PageHeader
         title="Tarify"
-        description="Kalkulačka složí z rozpočtu klienta 3 balíčky tak, aby se vyplatilo vzít ten největší. Obsah balíčků určují šablony dole."
+        description="Balíčky měsíční správy webu (hosting, zabezpečení, úpravy). Kalkulačka složí z rozpočtu klienta 3 balíčky tak, aby se vyplatilo vzít ten největší. Obsah balíčků určují šablony dole. Vytvoření webu se platí zvlášť pevnou cenou (e-mail L2)."
       />
       <Card>
         <CardHeader>
-          <CardTitle>Kalkulačka balíčků</CardTitle>
+          <CardTitle>Kalkulačka balíčků správy</CardTitle>
           <CardDescription>
             Premium je kousek nad rozpočtem klienta, Standard jen o málo levnější (ale bez několika věcí) a Základ
             výrazně levnější a holý – jako popcorn v kině.
@@ -38,7 +38,7 @@ export default function TiersPage({ searchParams }: PageProps<"/settings/tiers">
       </Card>
       <Card className="min-w-0">
         <CardHeader>
-          <CardTitle>Uložené balíčky</CardTitle>
+          <CardTitle>Uložené balíčky správy</CardTitle>
         </CardHeader>
         <CardContent>
           <Suspense fallback={<Skeleton className="h-32 w-full" />}>
@@ -46,7 +46,7 @@ export default function TiersPage({ searchParams }: PageProps<"/settings/tiers">
           </Suspense>
         </CardContent>
       </Card>
-      <h2 className="mt-2 text-lg font-semibold">Šablony balíčků</h2>
+      <h2 className="mt-2 text-lg font-semibold">Šablony balíčků správy</h2>
       <p className="-mt-2 text-sm text-muted-foreground">
         Kalkulačka bere první 3 aktivní šablony podle pořadí (Základ → Standard → Premium) a jejich funkce. Aby
         návnada fungovala, má Premium obsahovat vše ze Standardu a navíc 2–3 viditelné věci. Výchozí cena se

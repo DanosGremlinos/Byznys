@@ -1,5 +1,7 @@
 import { Mail, Plus } from "lucide-react";
 import Link from "next/link";
+import { deletePackageOfferAction } from "@/app/(app)/settings/tiers/actions";
+import { ConfirmAction } from "@/components/common/confirm-action";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -71,12 +73,13 @@ export function PackageOffersTable({ offers, showClient = true }: { offers: Offe
                 <OfferStatus o={o} />
               </TableCell>
               <TableCell>
+                <div className="flex flex-wrap items-start justify-end gap-1">
                 {o.subscription ? (
                   <Button asChild size="sm" variant="ghost">
                     <Link href={`/subscriptions/${o.subscription.id}`}>Předplatné</Link>
                   </Button>
                 ) : (
-                  <div className="flex flex-wrap justify-end gap-1">
+                  <>
                     <Button asChild size="sm" variant="outline">
                       <Link href={`/messaging/queue/new?client=${o.client.id}&offer=${o.id}`}>
                         <Mail />
@@ -91,8 +94,17 @@ export function PackageOffersTable({ offers, showClient = true }: { offers: Offe
                         </Link>
                       </Button>
                     ))}
-                  </div>
+                  </>
                 )}
+                <ConfirmAction
+                  action={deletePackageOfferAction.bind(null, o.id)}
+                  confirmText={`Smazat uložené balíčky z ${formatDate(o.createdAt)}${showClient ? ` (${o.client.businessName})` : ""}?${o.subscription ? " Předplatné, které z nich vzniklo, zůstane." : ""}`}
+                  label="Smazat balíčky"
+                  variant="ghost"
+                  size="icon-sm"
+                  iconOnly
+                />
+                </div>
               </TableCell>
             </TableRow>
           ))}

@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, isNull, ne } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { builderProjects, clients, emailThreads, leads, websites } from "@/db/schema";
+import { builderProjects, clients, emailThreads, leads, subscriptions, websites } from "@/db/schema";
 
 // A "zakázka" (job) is a website record. It exists from the moment the deal gets serious (L2 contract,
 // or "Založit zakázku" in the Builder), so it shows on the dashboard before any subscription exists.
@@ -116,4 +116,20 @@ export async function createJobFromProject(
     .set({ websiteId: website.id, updatedAt: new Date() })
     .where(eq(builderProjects.id, project.id));
   return { website, client, created };
+}
+
+/**
+ * Removes a job (zakázka) from the dashboard: deletes the website record. Builder projects, contracts and
+ * saved packages stay (their link to the job is cleared); the client, the lead and all emails stay too.
+ * A job with a subscription can't be removed – the subscription holds the payment history.
+ */
+export async function deleteJob(db: Database, websiteId: string): Promise<void> {
+  const website = await db.query.websites.findFirst({ where: eq(websites.id, websiteId) });
+  if (!website) throw new Error("Zakázka nenalezena.");
+  const sub = await db.query.subscriptions.findFirst({ where: eq(subscriptions.websiteId, websiteId) });
+  if (sub)
+    throw new Error(
+      "Zakázka má předplatné (s historií plateb), proto ji nelze odebrat. Předplatné můžete zrušit v jeho detailu.",
+    );
+  await db.delete(websites).where(eq(websites.id, websiteId));
 }

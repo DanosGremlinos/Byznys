@@ -22,7 +22,7 @@ import { slugify } from "@/db/seed-data";
 import { aiConfigured } from "@/server/ai/client";
 import { personalizeDraft } from "@/server/ai/messaging";
 import { isBlacklisted } from "@/server/email/blacklist";
-import { getPackageOffer, markOfferEmailed } from "@/server/billing/package-offers";
+import { copyOfferToClient, getPackageOffer, markOfferEmailed } from "@/server/billing/package-offers";
 import { displayNameOf, normalizeEmail, renderTemplate } from "@/server/email/render";
 import { ensureClientForLead, ensureJobForClient } from "@/server/websites/jobs";
 
@@ -32,9 +32,9 @@ export type OfferLevel = "offer_l1" | "offer_l2" | "offer_budget" | "offer_l3";
 
 export const LEVEL_LABELS: Record<string, string> = {
   offer_l1: "L1 – první nabídka",
-  offer_l2: "L2 – návrh a smlouva",
+  offer_l2: "L2 – návrh, cena webu a smlouva",
   offer_budget: "Dotaz na rozpočet",
-  offer_l3: "L3 – předplatné",
+  offer_l3: "L3 – správa webu",
   dunning_1: "Upomínka 1",
   dunning_2: "Upomínka 2",
   dunning_3: "Upomínka 3",
@@ -93,6 +93,13 @@ export type OfferInput = {
   priceHalere?: number | null;
   /** L3: offer the three packages calculated for this client (Tarify → kalkulačka). */
   packageOfferId?: string | null;
+  /** L2: fixed one-time price for building the website. */
+  webPriceHalere?: number | null;
+  /**
+   * L2: also attach a contract generated from the contract template. Off by default – the owner attaches
+   * their own prepared contract file in the approval queue.
+   */
+  generateContract?: boolean;
   useAi: boolean;
 };
 
@@ -109,10 +116,12 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
   if (!lead && !client) throw new Error("Vyberte lead nebo klienta.");
   if (client?.leadId && !lead) lead = await db.query.leads.findFirst({ where: eq(leads.id, client.leadId) });
 
-  // L2 carries a contract, which belongs to a client: create the client from the lead if needed.
-  if (input.level === "offer_l2" && !client && lead) {
+  // L2 is the deal (contract), and L3 packages belong to a client: create the client from the lead if needed.
+  const needsClient =
+    input.level === "offer_l2" || (input.level === "offer_l3" && !!input.packageOfferId);
+  if (needsClient && !client && lead) {
     client = await ensureClientForLead(db, lead.id);
-    warnings.push(`Z leadu byl vytvořen klient „${client.businessName}“ (kvůli smlouvě).`);
+    warnings.push(`Z leadu byl vytvořen klient „${client.businessName}“.`);
   }
   // From L2 on, the deal is a job (zakázka) on the dashboard.
   if (input.level === "offer_l2" && client) {
@@ -120,11 +129,16 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
     if (job.created) warnings.push(`Založena zakázka „${job.website.name}“ – je vidět na přehledu.`);
   }
 
-  const offer =
+  let offer =
     input.level === "offer_l3" && input.packageOfferId ? await getPackageOffer(db, input.packageOfferId) : null;
   if (input.level === "offer_l3" && input.packageOfferId) {
     if (!offer) throw new Error("Uložené balíčky nenalezeny.");
-    if (!client || offer.clientId !== client.id) throw new Error("Uložené balíčky patří jinému klientovi.");
+    if (!client) throw new Error("Vyberte klienta.");
+    if (offer.clientId !== client.id) {
+      // Packages calculated for someone else: copy them to this client so both keep their own status.
+      offer = await copyOfferToClient(db, offer, client.id);
+      warnings.push("Balíčky jiného klienta byly zkopírovány k tomuto klientovi.");
+    }
   }
   const recommended = offer ? (offer.packages.find((p) => p.recommended) ?? offer.packages.at(-1)!) : null;
 
@@ -168,6 +182,7 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
     packageName,
     tierName: packageName,
     monthlyPrice: priceHalere !== null ? formatCzk(priceHalere).replace(/\s/g, " ") : null,
+    webPrice: input.webPriceHalere ? formatCzk(input.webPriceHalere).replace(/\s/g, " ") : null,
     tierComparison: offer ? packageComparisonText(offer.packages) : tierComparisonText(tiers),
     websiteDomain: website?.domain ?? null,
   };
@@ -193,7 +208,13 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
                 `${SCORE_FACTOR_LABELS[f.key as ScoreFactorKey] ?? f.key}${f.detail ? `: ${f.detail}` : ""}`,
             ),
           náhled_nového_webu: previewUrl,
-          navržený_balíček: recommended
+          ...(input.level === "offer_l2"
+            ? {
+                cena_za_web_jednorázově: vars.webPrice,
+                pokyn: "Cenu za web uveď přesně. Nenabízej měsíční balíčky – správa se nabídne později zvlášť. Smlouva je v příloze, její text do e-mailu nevkládej.",
+              }
+            : {}),
+          navržený_balíček: input.level === "offer_l2" ? null : recommended
             ? { název: recommended.name, cena_měsíčně: vars.monthlyPrice, funkce: recommended.features }
             : tier
               ? { název: tier.name, cena_měsíčně: vars.monthlyPrice, funkce: tier.features }
@@ -264,7 +285,9 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
     });
   }
 
-  if (input.level === "offer_l2" && client) {
+  if (input.level === "offer_l2" && client && !input.generateContract)
+    warnings.push("Nezapomeňte k e-mailu přiložit smlouvu k podpisu (Přílohy → Nahrát soubor).");
+  if (input.level === "offer_l2" && client && input.generateContract) {
     const contractTemplate =
       (await db.query.contractTemplates.findFirst({ where: eq(contractTemplates.isDefault, true) })) ??
       (await db.query.contractTemplates.findFirst());
@@ -278,6 +301,7 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
         clientIco: client.ico,
         clientAddress: client.address,
         domain: website?.domain ?? null,
+        webPrice: vars.webPrice,
         monthlyPrice: vars.monthlyPrice,
         packageName,
         tierName: packageName,

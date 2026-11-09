@@ -48,6 +48,8 @@ async function Form({ searchParams }: Pick<PageProps<"/messaging/queue/new">, "s
       packageOffers={offers.map((o) => ({
         id: o.id,
         clientId: o.client.id,
+        leadId: o.client.leadId,
+        clientName: o.client.businessName,
         label: `${formatDate(o.createdAt)} · rozpočet ${formatCzk(o.budgetHalere)} → ${o.packages
           .map((p) => `${p.name} ${formatCzk(p.priceHalere)}${p.recommended ? " ★" : ""}`)
           .join(" / ")}${o.website ? ` (${o.website.domain ?? o.website.name})` : ""}`,

@@ -1,12 +1,20 @@
 "use client";
 
-import { AlertTriangle, FileText, Send, Trash2 } from "lucide-react";
+import { AlertTriangle, FileText, Paperclip, Send, Trash2, X } from "lucide-react";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { approveAndSend, rejectDraft, saveDraft, saveDraftContract, type ActionState } from "../actions";
+import {
+  approveAndSend,
+  rejectDraft,
+  removeDraftAttachment,
+  saveDraft,
+  saveDraftContract,
+  uploadDraftAttachment,
+  type ActionState,
+} from "../actions";
 
 type Props = {
   email: {
@@ -16,6 +24,7 @@ type Props = {
     bodyText: string;
     status: string;
     error: string | null;
+    kind: string | null;
   };
   blacklisted: boolean;
   attachments: { id: string; url: string; filename: string; contentType: string }[];
@@ -35,6 +44,9 @@ export function QueueEditor({ email, blacklisted, attachments, contract }: Props
   const [body, setBody] = useState(email.bodyText);
   const missing = placeholders(`${subject}\n${body}`);
   const state = sendState.ok || sendState.error ? sendState : saveState;
+  const editable = ["pending_approval", "approved", "failed", "blocked"].includes(email.status);
+  const needsContract =
+    editable && email.kind === "offer_l2" && !attachments.some((a) => !a.contentType.startsWith("image/"));
 
   return (
     <div className="grid gap-4">
@@ -86,18 +98,38 @@ export function QueueEditor({ email, blacklisted, attachments, contract }: Props
           <div className="grid gap-1 text-sm">
             <span className="font-medium">Přílohy</span>
             {attachments.map((a) => (
-              <a
-                key={a.id}
-                href={a.url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 hover:underline"
-              >
-                <FileText className="size-4" />
-                {a.filename} {a.contentType.startsWith("image/") ? "(vložený obrázek)" : ""}
-              </a>
+              <div key={a.id} className="flex items-center gap-2">
+                <a
+                  href={a.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex min-w-0 items-center gap-1 hover:underline"
+                >
+                  <FileText className="size-4 shrink-0" />
+                  <span className="truncate">{a.filename}</span>
+                  {a.contentType.startsWith("image/") ? " (vložený obrázek)" : ""}
+                </a>
+                {editable ? (
+                  <Button
+                    type="submit"
+                    size="icon-xs"
+                    variant="ghost"
+                    formAction={removeDraftAttachment.bind(null, email.id, a.id)}
+                    aria-label={`Odebrat přílohu ${a.filename}`}
+                    title="Odebrat přílohu"
+                  >
+                    <X />
+                  </Button>
+                ) : null}
+              </div>
             ))}
           </div>
+        ) : null}
+        {needsContract ? (
+          <p className="flex items-center gap-2 rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+            <AlertTriangle className="size-4 shrink-0" />
+            E-mail L2 zmiňuje smlouvu v příloze – nahrajte ji níže, než e-mail odešlete.
+          </p>
         ) : null}
         {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
         {state.ok ? <p className="text-sm text-emerald-700">{state.ok}</p> : null}
@@ -124,6 +156,7 @@ export function QueueEditor({ email, blacklisted, attachments, contract }: Props
           </Button>
         </div>
       </form>
+      {editable ? <AttachmentUpload emailId={email.id} /> : null}
       {contract ? <ContractEditor emailId={email.id} contract={contract} /> : null}
     </div>
   );
@@ -161,6 +194,34 @@ function ContractEditor({ emailId, contract }: { emailId: string; contract: { id
           Uložit smlouvu
         </Button>
       </div>
+    </form>
+  );
+}
+
+function AttachmentUpload({ emailId }: { emailId: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(
+    uploadDraftAttachment.bind(null, emailId),
+    {},
+  );
+  return (
+    <form action={action} className="grid gap-2 rounded-md border p-3">
+      <Label htmlFor="attachment-file">Přiložit soubor (např. smlouvu k podpisu – PDF nebo Word, max. 4 MB)</Label>
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          id="attachment-file"
+          name="file"
+          type="file"
+          accept=".pdf,.doc,.docx,.odt,image/*"
+          required
+          className="max-w-sm"
+        />
+        <Button type="submit" size="sm" variant="outline" disabled={pending}>
+          <Paperclip />
+          {pending ? "Nahrávám…" : "Nahrát"}
+        </Button>
+      </div>
+      {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+      {state.ok ? <p className="text-sm text-emerald-700">{state.ok}</p> : null}
     </form>
   );
 }
