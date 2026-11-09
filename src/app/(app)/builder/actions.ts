@@ -77,7 +77,6 @@ const projectSchema = z.object({
         sortOrder: z.number().int(),
         isHero: z.boolean(),
         isSelected: z.boolean(),
-        rightsConfirmed: z.boolean(),
       }),
     )
     .max(500),
@@ -101,12 +100,7 @@ async function save(projectId: string, payload: unknown): Promise<string | null>
     for (const a of assets) {
       await tx
         .update(builderAssets)
-        .set({
-          sortOrder: a.sortOrder,
-          isHero: a.isHero,
-          isSelected: a.isSelected,
-          rightsConfirmed: a.rightsConfirmed,
-        })
+        .set({ sortOrder: a.sortOrder, isHero: a.isHero, isSelected: a.isSelected })
         .where(and(eq(builderAssets.id, a.id), eq(builderAssets.projectId, projectId)));
     }
   });
@@ -176,8 +170,6 @@ export async function addUploadedAsset(projectId: string, input: unknown) {
       filename: data.filename,
       contentType: data.contentType,
       sortOrder: 1000,
-      // Own uploads are material the owner or the client supplied.
-      rightsConfirmed: true,
     })
     .returning();
   refresh();

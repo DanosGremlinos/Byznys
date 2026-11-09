@@ -13,14 +13,7 @@ export default defineConfig({
     environment: "node",
     // DB integration tests share one throwaway database, so files run one after another.
     fileParallelism: false,
-    env: {
-      UNSUBSCRIBE_SECRET: "test-unsubscribe-secret",
-      APP_URL: "https://app.test",
-      EMAIL_FROM: "Test Weby <nabidky@weby.test>",
-      PROVIDER_NAME: "Test Weby s.r.o.",
-      PROVIDER_ICO: "12345678",
-      PROVIDER_ADDRESS: "Testovací 1, 602 00 Brno",
-    },
+    env: { UNSUBSCRIBE_SECRET: "test-unsubscribe-secret", APP_URL: "https://app.test", EMAIL_FROM: "Test Weby <nabidky@weby.test>" },
     testTimeout: 30_000,
     hookTimeout: 60_000,
   },

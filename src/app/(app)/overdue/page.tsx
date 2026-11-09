@@ -89,9 +89,6 @@ async function List({ searchParams }: Pick<PageProps<"/overdue">, "searchParams"
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-4">
-        {typeof sp.suspendError === "string" ? (
-          <p className="rounded-md bg-amber-50 p-2 text-sm text-amber-800">{sp.suspendError}</p>
-        ) : null}
         <form className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr_auto]">
           <Input name="q" placeholder="Klient nebo doména" defaultValue={q} />
           <NativeSelect name="minDays" defaultValue={String(minDays ?? "")}>
@@ -169,12 +166,7 @@ async function List({ searchParams }: Pick<PageProps<"/overdue">, "searchParams"
                     </form>
                   ) : null}
                   <form
-                    action={suspendWebsiteAction.bind(
-                      null,
-                      r.websiteId,
-                      r.websiteStatus !== "suspended",
-                      "/overdue",
-                    )}
+                    action={suspendWebsiteAction.bind(null, r.websiteId, r.websiteStatus !== "suspended")}
                   >
                     <Button type="submit" size="sm" variant="outline">
                       {r.websiteStatus === "suspended" ? "Znovu spustit web" : "Pozastavit web"}
