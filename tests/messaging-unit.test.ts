@@ -13,6 +13,7 @@ import {
   verifyUnsubscribeToken,
   withUnsubscribe,
 } from "@/server/email/render";
+import { DEFAULT_EMAIL_TEMPLATES } from "@/config/email-templates";
 import { issuesText, tierComparisonText } from "@/server/messaging/compose";
 
 describe("templates", () => {
@@ -54,7 +55,7 @@ describe("unsubscribe", () => {
     );
     const appended = withUnsubscribe("Text bez patičky", "https://u/1");
     expect(appended).toContain("https://u/1");
-    expect(appended).toContain("Odhlásit se můžete zde");
+    expect(appended).toContain("Nechcete další e-maily? Odhlásit se: https://u/1");
   });
 
   it("shows the opt-out link as short quiet text in HTML", () => {
@@ -134,8 +135,8 @@ describe("offer content", () => {
       { key: "slow", fired: false, weight: 10, points: 0 },
     ]);
     expect(text.split("\n")).toEqual([
-      "- Web se špatně zobrazuje na mobilu, odkud dnes přichází většina návštěvníků.",
-      "- Web nemá zabezpečené připojení (HTTPS), takže ho prohlížeče označují jako nezabezpečený.",
+      "- Na mobilu se web zobrazuje jako zmenšená verze pro počítač, přitom většina lidí dnes hledá právě z telefonu.",
+      "- Prohlížeč u vašeho webu ukazuje „Nezabezpečeno“, což některé návštěvníky odradí.",
     ]);
   });
   it("lists the package templates", () => {
@@ -164,6 +165,26 @@ describe("contract PDF", () => {
   });
 });
 
+describe("issue wording", () => {
+  it("speaks plainly about speed and has no technical terms", () => {
+    const t = issuesText([
+      { key: "slow", fired: true, weight: 10, points: 10, detail: "PageSpeed mobil 47/100" },
+      { key: "missingSeo", fired: true, weight: 5, points: 5, detail: "Chybí: meta description" },
+    ]);
+    expect(t).toContain("Google mu dává 47 bodů ze 100");
+    expect(t).not.toMatch(/PageSpeed|meta description/);
+  });
+  it("every default template renders without leftover placeholders", () => {
+    for (const tpl of DEFAULT_EMAIL_TEMPLATES) {
+      const vars = Object.fromEntries(
+        [...tpl.body.matchAll(/\{\{(\w+)\}\}/g)].map(([, k]) => [k, k === "contactGreeting" ? "" : "x"]),
+      );
+      expect(unresolvedPlaceholders(renderTemplate(tpl.body, vars))).toEqual([]);
+      if (tpl.kind.startsWith("offer_")) expect(tpl.body).toContain("{{unsubscribeUrl}}");
+    }
+  });
+});
+
 describe("reputation wording", () => {
   it("has no nested brackets", () => {
     const t = issuesText([
@@ -175,6 +196,6 @@ describe("reputation wording", () => {
         detail: "Hodnocení 4,4 (305 recenzí)",
       },
     ]);
-    expect(t).toBe("- Máte skvělé hodnocení na Googlu – 4,4 (305 recenzí), ale web to zatím neukazuje.");
+    expect(t).toBe("- Na Googlu máte výborné hodnocení 4,4 z 5 od 305 lidí, ale web to zatím vůbec neukazuje.");
   });
 });

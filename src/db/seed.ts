@@ -3,7 +3,7 @@
  * data. Development / preview databases only. CLI entry point: ./seed-cli.ts
  */
 import { and, eq, lt, sql } from "drizzle-orm";
-import { BUDGET_TEMPLATE } from "../config/budget-template";
+import { DEFAULT_EMAIL_TEMPLATES } from "../config/email-templates";
 import { pragueToday } from "../lib/format";
 import { calculatePackages } from "../lib/package-calculator";
 import { buildSitePrompt } from "../server/builder/prompt";
@@ -706,107 +706,7 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
     // ---- Email templates & contract template ------------------------------
     const templates = await tx
       .insert(s.emailTemplates)
-      .values([
-        BUDGET_TEMPLATE,
-        {
-          key: "offer_l1_default",
-          kind: "offer_l1",
-          name: "L1 – první oslovení s náhledem",
-          subject: "Návrh nového webu pro {{businessName}}",
-          body: `Dobrý den{{contactGreeting}},
-
-dívali jsme se na web {{businessName}} a všimli jsme si několika věcí, které vás mohou připravovat o zákazníky:
-
-{{issues}}
-
-Připravili jsme proto nezávazný návrh, jak by mohl vypadat váš nový web: {{previewUrl}}
-
-Pokud se vám líbí, rád vám pošlu finální verzi a podmínky. Stačí odpovědět na tento e-mail.
-
-S pozdravem
-{{senderName}}
-
----
-Nechcete dostávat další zprávy? Odhlásit se můžete zde: {{unsubscribeUrl}}`,
-        },
-        {
-          key: "offer_l2_default",
-          kind: "offer_l2",
-          name: "L2 – finální návrh, smlouva a rozpočet",
-          subject: "Finální návrh webu a smlouva – {{businessName}}",
-          body: `Dobrý den{{contactGreeting}},
-
-děkuji za odpověď. V příloze posílám finální návrh webu a smlouvu.
-
-Náhled: {{previewUrl}}
-Navrhované předplatné: {{packageName}} za {{monthlyPrice}} měsíčně (hosting, doména, údržba a úpravy).
-
-V případě dotazů jsem k dispozici.
-
-S pozdravem
-{{senderName}}
-
----
-Odhlásit se: {{unsubscribeUrl}}`,
-        },
-        {
-          key: "offer_l3_default",
-          kind: "offer_l3",
-          name: "L3 – nabídka předplatného",
-          subject: "Předplatné webu {{businessName}} – srovnání balíčků",
-          body: `Dobrý den{{contactGreeting}},
-
-posílám přehled balíčků, ze kterých si můžete vybrat. Cenu i obsah rád upravím podle vašich potřeb:
-
-{{tierComparison}}
-
-Pro vás navrhuji: {{packageName}} za {{monthlyPrice}} měsíčně.
-
-S pozdravem
-{{senderName}}
-
----
-Odhlásit se: {{unsubscribeUrl}}`,
-        },
-        {
-          key: "dunning_1_default",
-          kind: "dunning_1",
-          name: "Upomínka 1 – přátelská připomínka (den 0)",
-          subject: "Připomínka platby za web {{websiteDomain}}",
-          body: `Dobrý den{{contactGreeting}},
-
-jen přátelsky připomínám platbu {{amount}} za správu webu {{websiteDomain}}, která byla splatná {{dueDate}}. Pokud jste již platili, považujte prosím tento e-mail za bezpředmětný.
-
-S pozdravem
-{{senderName}}`,
-        },
-        {
-          key: "dunning_2_default",
-          kind: "dunning_2",
-          name: "Upomínka 2 – připomínka (den 3)",
-          subject: "Upomínka – platba za web {{websiteDomain}} je po splatnosti",
-          body: `Dobrý den{{contactGreeting}},
-
-platba {{amount}} za správu webu {{websiteDomain}} je {{daysOverdue}} dní po splatnosti (splatná {{dueDate}}).
-
-Děkuji za brzkou úhradu.
-
-S pozdravem
-{{senderName}}`,
-        },
-        {
-          key: "dunning_3_default",
-          kind: "dunning_3",
-          name: "Upomínka 3 – poslední výzva (den 7)",
-          subject: "Poslední výzva k úhradě – web {{websiteDomain}}",
-          body: `Dobrý den{{contactGreeting}},
-
-platba {{amount}} za správu webu {{websiteDomain}} (splatná {{dueDate}}) stále nedorazila. Pokud ji neobdržím do 3 dnů, budu nucen web dočasně pozastavit.
-
-S pozdravem
-{{senderName}}`,
-        },
-      ])
+      .values(DEFAULT_EMAIL_TEMPLATES)
       .returning();
     const tpl = Object.fromEntries(templates.map((t) => [t.kind, t])) as Record<
       string,

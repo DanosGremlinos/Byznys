@@ -466,3 +466,24 @@ Branch `claude/charming-noether-cwusyd` (based on `claude/busy-clarke-49tnmm`). 
   communication); the one-click endpoint still works for links already sent.
 - HTML version shows the opt-out as a small grey "Odhlásit se" link instead of the long token URL.
 - Sender `webyz <info@webyz.email>`; DMARC record (`p=none`) added by the owner.
+
+## Úprava 3 — Denní limit hledání leadů + lepší šablony e-mailů ✅
+
+### Daily lead-search limit
+- `src/config/limits.ts`: default **5 searches per day** (Europe/Prague), override `LEAD_SEARCH_DAILY_LIMIT`
+  (0 = searching off). One search = up to 3 Places Text Search requests + up to 240 photo requests.
+- `reserveLeadSearch` counts today's `lead_search` jobs and creates the job under a transaction advisory lock
+  (two clicks at once cannot both pass). Every started search counts, failed ones too (Google may have been
+  called). The Leads page shows "Dnes použito X z Y vyhledávání". No schema change.
+
+### Email templates
+- All default texts live in `src/config/email-templates.ts` (seed + "Obnovit výchozí text" on Šablony).
+- Rewritten for a personal 1:1 tone: first person, plain language, no marketing phrases, a question at the end,
+  short opt-out line (no `---` separator).
+- Problem bullets (`{{issues}}`) in plain language without technical terms ("PageSpeed", "meta description");
+  speed shown as "Google mu dává 47 bodů ze 100".
+- Šablony page: "Obnovit výchozí text" button for built-in templates (asks for confirmation).
+
+### Checks
+- typecheck ✅, lint ✅, tests ✅ (108, incl. DB: limit reached, two concurrent searches, yesterday not counted,
+  limit 0; every default template renders without leftover placeholders).

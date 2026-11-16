@@ -56,7 +56,7 @@ export function verifyUnsubscribeToken(token: string, secret: string): string | 
 export function withUnsubscribe(body: string, unsubscribeUrl: string): string {
   if (body.includes(UNSUBSCRIBE_PLACEHOLDER)) return body.split(UNSUBSCRIBE_PLACEHOLDER).join(unsubscribeUrl);
   if (body.includes(unsubscribeUrl)) return body;
-  return `${body.trimEnd()}\n\n---\nNechcete dostávat další zprávy? Odhlásit se můžete zde: ${unsubscribeUrl}\n`;
+  return `${body.trimEnd()}\n\nNechcete další e-maily? Odhlásit se: ${unsubscribeUrl}\n`;
 }
 
 /** "Odhlásit se můžete zde: <url>" / "Odhlásit se: <url>" / bare unsubscribe URL (already HTML-escaped). */

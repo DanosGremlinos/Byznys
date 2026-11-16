@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { defaultTemplateFor } from "@/config/email-templates";
 import { LEVEL_LABELS } from "@/server/messaging/compose";
 import { listTemplates } from "@/server/messaging/queries";
 import { createCustomTemplate } from "../actions";
@@ -78,7 +79,16 @@ async function Templates() {
           </CardHeader>
           <CardContent>
             <EmailTemplateForm
-              t={{ id: t.id, name: t.name, subject: t.subject, body: t.body, kind: t.kind }}
+              // Remount after "Obnovit výchozí text" so the fields show the restored text.
+              key={`${t.subject}\n${t.body}`}
+              t={{
+                id: t.id,
+                name: t.name,
+                subject: t.subject,
+                body: t.body,
+                kind: t.kind,
+                hasDefault: Boolean(defaultTemplateFor(t.key)),
+              }}
             />
           </CardContent>
         </Card>

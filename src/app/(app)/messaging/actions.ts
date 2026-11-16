@@ -14,6 +14,7 @@ import {
   emailThreads,
   emails,
 } from "@/db/schema";
+import { defaultTemplateFor } from "@/config/email-templates";
 import { requireAdmin } from "@/lib/auth-guard";
 import { aiConfigured } from "@/server/ai/client";
 import { draftReply } from "@/server/ai/messaging";
@@ -282,6 +283,19 @@ export async function saveEmailTemplate(
   await db.update(emailTemplates).set(parsed.data).where(eq(emailTemplates.id, id));
   refresh();
   return { ok: "Šablona uložena." };
+}
+
+/** Restores a built-in template's name, subject and text from src/config/email-templates.ts. */
+export async function resetEmailTemplate(id: string) {
+  await requireAdmin();
+  const row = await db.query.emailTemplates.findFirst({ where: eq(emailTemplates.id, id) });
+  const def = row ? defaultTemplateFor(row.key) : undefined;
+  if (!def) return;
+  await db
+    .update(emailTemplates)
+    .set({ name: def.name, subject: def.subject, body: def.body })
+    .where(eq(emailTemplates.id, id));
+  refresh();
 }
 
 export async function createCustomTemplate() {

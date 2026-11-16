@@ -64,7 +64,7 @@ describe.skipIf(!url)("packages and jobs (DB)", () => {
     const { emailId } = await createOfferDraft(db, { clientId: demo.id, level: "offer_budget", useAi: false });
     const email = await db.query.emails.findFirst({ where: eq(emails.id, emailId) });
     expect(email).toMatchObject({ kind: "offer_budget", status: "pending_approval" });
-    expect(email?.bodyText).toContain("Kolik byste byli ochotni měsíčně");
+    expect(email?.bodyText).toContain("Kolik byste byli ochotni za web dávat měsíčně");
     expect(await db.query.emailTemplates.findFirst({ where: eq(emailTemplates.key, "offer_budget_default") })).toBeTruthy();
   });
 

@@ -5,12 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { deleteCustomTemplate, saveContractTemplate, saveEmailTemplate, type ActionState } from "../actions";
+import {
+  deleteCustomTemplate,
+  resetEmailTemplate,
+  saveContractTemplate,
+  saveEmailTemplate,
+  type ActionState,
+} from "../actions";
 
 export function EmailTemplateForm({
   t,
 }: {
-  t: { id: string; name: string; subject: string; body: string; kind: string };
+  t: { id: string; name: string; subject: string; body: string; kind: string; hasDefault: boolean };
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(
     saveEmailTemplate.bind(null, t.id),
@@ -43,6 +49,20 @@ export function EmailTemplateForm({
         <Button type="submit" size="sm" disabled={pending}>
           Uložit
         </Button>
+        {t.hasDefault ? (
+          <Button
+            type="submit"
+            size="sm"
+            variant="ghost"
+            formAction={resetEmailTemplate.bind(null, t.id)}
+            formNoValidate
+            onClick={(e) => {
+              if (!confirm("Nahradit text šablony výchozí verzí? Vaše úpravy se ztratí.")) e.preventDefault();
+            }}
+          >
+            Obnovit výchozí text
+          </Button>
+        ) : null}
         {t.kind === "custom" ? (
           <Button type="submit" size="sm" variant="ghost" formAction={deleteCustomTemplate.bind(null, t.id)}>
             Smazat
