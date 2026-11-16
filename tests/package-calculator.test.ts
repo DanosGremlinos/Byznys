@@ -97,7 +97,9 @@ describe("texts", () => {
   it("marks the recommended package in the email comparison", () => {
     const text = packageComparisonText(packages);
     expect(text).toContain("Základ – 490 Kč měsíčně");
-    expect(text).toContain("★ Premium – 1 090 Kč měsíčně (nejoblíbenější)");
+    expect(text).toContain(
+      "★ Premium – 1 090 Kč měsíčně, nebo 10 900 Kč ročně (2 měsíce zdarma) – nejoblíbenější",
+    );
     expect(text).toContain("oproti balíčku Standard jen o 100 Kč víc a navíc: Neomezené úpravy");
   });
 });

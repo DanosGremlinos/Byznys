@@ -66,7 +66,7 @@ ${OPT_OUT}`,
 
 děkuji za odpověď, jsem rád, že se vám návrh líbí. Finální podobu webu najdete tady: {{previewUrl}}
 
-V příloze posílám smlouvu. Web vám můžu i dál spravovat – hosting, doména, zabezpečení a úpravy obsahu. Navrhuji balíček {{packageName}} za {{monthlyPrice}} měsíčně.
+V příloze posílám smlouvu. Web vám můžu i dál spravovat – hosting, doména, zabezpečení a úpravy obsahu. Navrhuji balíček {{packageName}} za {{monthlyPrice}} měsíčně, nebo {{yearlyPrice}}, pokud zaplatíte rovnou na celý rok.
 
 Pokud byste chtěli cokoliv upravit nebo vám není něco jasné, stačí odepsat.
 
@@ -87,7 +87,7 @@ děkuji za informaci. Podle ní jsem připravil varianty správy webu:
 
 {{tierComparison}}
 
-Za mě nejvíc dává smysl {{packageName}} za {{monthlyPrice}} měsíčně. Obsah i cenu ale rád upravím podle toho, co potřebujete.
+Za mě nejvíc dává smysl {{packageName}} za {{monthlyPrice}} měsíčně. Když zaplatíte rovnou na celý rok, vyjde vás na {{yearlyPrice}}. Obsah i cenu rád upravím podle toho, co potřebujete.
 
 Která varianta vám vyhovuje? Stačí odepsat a vše připravím.
 

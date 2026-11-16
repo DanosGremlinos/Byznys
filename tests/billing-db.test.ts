@@ -198,4 +198,43 @@ describe.skipIf(!url)("billing & dunning (DB)", () => {
     const updated = await db.query.subscriptions.findFirst({ where: eq(subscriptions.id, sub.id) });
     expect(updated?.name).toBe("Základ");
   });
+  it("yearly subscription: one payment covers a year, reminders ask for the yearly price", async () => {
+    const sub = await createSubscription(db, {
+      clientId,
+      newWebsite: { name: "Rocni web", domain: "rocni-web.cz" },
+      name: "Standard",
+      billingPeriod: "yearly",
+      priceHalere: 990000,
+      features: ["Hosting"],
+      startedOn: addDays(TODAY, -400),
+      paidUntil: addDays(TODAY, -1),
+    });
+    expect(sub.billingPeriod).toBe("yearly");
+    await processDunning(db, TODAY);
+    const { run } = await stepsOf(sub.id);
+    expect(run?.amountHalere).toBe(990000);
+    const r = await recordPayment(db, sub.id, { months: 12, amountHalere: 990000 });
+    expect(r.paidUntil).toBe(addDays(addDays(TODAY, -1), 0).replace(/^(\d{4})/, (y) => String(Number(y) + 1)));
+    const ev = await db.query.subscriptionEvents.findFirst({
+      where: and(eq(subscriptionEvents.subscriptionId, sub.id), eq(subscriptionEvents.type, "payment_received")),
+    });
+    expect(ev?.note).toBe("Platba na rok");
+  });
+
+  it("switching to yearly at the 10-month price is not a downgrade", async () => {
+    const sub = await newSub(addDays(TODAY, 20), "Prechod na rok");
+    await changePackage(db, sub.id, {
+      tierId: null,
+      name: "Standard",
+      billingPeriod: "yearly",
+      priceHalere: 990000,
+      features: ["Hosting"],
+    });
+    const updated = await db.query.subscriptions.findFirst({ where: eq(subscriptions.id, sub.id) });
+    expect(updated?.billingPeriod).toBe("yearly");
+    const ev = await db.query.subscriptionEvents.findFirst({
+      where: and(eq(subscriptionEvents.subscriptionId, sub.id), eq(subscriptionEvents.type, "upgraded")),
+    });
+    expect(ev?.note).toBe("platba: měsíčně → ročně");
+  });
 });

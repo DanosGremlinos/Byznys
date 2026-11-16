@@ -141,7 +141,7 @@ describe("offer content", () => {
   });
   it("lists the package templates", () => {
     expect(tierComparisonText([{ name: "Základ", monthlyPriceHalere: 49000, features: ["Hosting"] }])).toBe(
-      "Základ – 490 Kč měsíčně\n  • Hosting",
+      "Základ – 490 Kč měsíčně, nebo 4 900 Kč ročně (2 měsíce zdarma)\n  • Hosting",
     );
   });
 });

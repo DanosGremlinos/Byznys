@@ -2,6 +2,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
 import { clients, leads, subscriptionEvents, subscriptionTiers, subscriptions, websites } from "@/db/schema";
+import { monthlyFromYearly, PERIOD_LABELS, type BillingPeriod } from "@/lib/billing-period";
 import { extendPaidUntil } from "@/lib/dates";
 import { cancelDunningFor, stopDunningIfPaid } from "./dunning";
 
@@ -19,6 +20,8 @@ export type NewSubscriptionInput = {
   newWebsite?: { name: string; domain?: string | null } | null;
   tierId?: string | null;
   name: string;
+  /** Monthly (default) or yearly; priceHalere is per this period. */
+  billingPeriod?: BillingPeriod;
   priceHalere: number;
   features: string[];
   startedOn: string;
@@ -58,6 +61,7 @@ export async function createSubscription(db: Database, input: NewSubscriptionInp
       websiteId,
       tierId: input.tierId ?? null,
       name: input.name,
+      billingPeriod: input.billingPeriod ?? "monthly",
       priceHalere: input.priceHalere,
       features: input.features,
       status: "active",
@@ -72,10 +76,16 @@ export async function createSubscription(db: Database, input: NewSubscriptionInp
     toTierId: input.tierId ?? null,
     toPriceHalere: input.priceHalere,
     amountHalere: input.priceHalere,
-    note: `Nové předplatné: ${input.name}`,
+    note: `Nové předplatné: ${input.name}${input.billingPeriod === "yearly" ? " (ročně)" : ""}`,
   });
   if (client.leadId) await db.update(leads).set({ status: "converted" }).where(eq(leads.id, client.leadId));
   return sub;
+}
+
+function paymentNote(months: number): string | null {
+  if (months === 1) return null;
+  if (months === 12) return "Platba na rok";
+  return `Platba za ${months} ${months <= 4 ? "měsíce" : "měsíců"}`;
 }
 
 /** Records a payment received outside the app; moves paid_until forward and stops covered reminders. */
@@ -97,7 +107,7 @@ export async function recordPayment(
     type: "payment_received",
     amountHalere: input.amountHalere,
     paidUntil,
-    note: input.note || (input.months > 1 ? `Platba za ${input.months} měsíce` : null),
+    note: input.note || paymentNote(input.months),
     occurredAt: input.paidAt ?? new Date(),
   });
   const stopped = await stopDunningIfPaid(db, sub.id);
@@ -108,15 +118,34 @@ export async function recordPayment(
 export async function changePackage(
   db: Database,
   subscriptionId: string,
-  input: { tierId: string | null; name: string; priceHalere: number; features: string[] },
+  input: {
+    tierId: string | null;
+    name: string;
+    priceHalere: number;
+    features: string[];
+    billingPeriod?: BillingPeriod;
+  },
 ) {
   const sub = await load(db, subscriptionId);
   if (sub.status === "cancelled") throw new Error("Zrušené předplatné nelze měnit");
   if (input.priceHalere <= 0) throw new Error("Cena musí být kladná");
-  const type = input.priceHalere < sub.priceHalere ? ("downgraded" as const) : ("upgraded" as const);
+  const period = input.billingPeriod ?? sub.billingPeriod;
+  // Compare the package's monthly list price (yearly price ÷ 10), so switching to the cheaper yearly
+  // payment alone is not a "downgrade"; only a cheaper package is.
+  const listMonthly = (price: number, p: BillingPeriod) => (p === "yearly" ? monthlyFromYearly(price) : price);
+  const type =
+    listMonthly(input.priceHalere, period) < listMonthly(sub.priceHalere, sub.billingPeriod)
+      ? ("downgraded" as const)
+      : ("upgraded" as const);
   await db
     .update(subscriptions)
-    .set({ tierId: input.tierId, name: input.name, priceHalere: input.priceHalere, features: input.features })
+    .set({
+      tierId: input.tierId,
+      name: input.name,
+      billingPeriod: period,
+      priceHalere: input.priceHalere,
+      features: input.features,
+    })
     .where(eq(subscriptions.id, sub.id));
   await db.insert(subscriptionEvents).values({
     subscriptionId: sub.id,
@@ -126,7 +155,14 @@ export async function changePackage(
     toTierId: input.tierId,
     fromPriceHalere: sub.priceHalere,
     toPriceHalere: input.priceHalere,
-    note: sub.name !== input.name ? `${sub.name} → ${input.name}` : "Úprava balíčku",
+    note: [
+      sub.name !== input.name ? `${sub.name} → ${input.name}` : null,
+      period !== sub.billingPeriod
+        ? `platba: ${PERIOD_LABELS[sub.billingPeriod].toLowerCase()} → ${PERIOD_LABELS[period].toLowerCase()}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(", ") || "Úprava balíčku",
   });
 }
 

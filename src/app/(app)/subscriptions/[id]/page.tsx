@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatPeriodPrice, monthlyEquivalent } from "@/lib/billing-period";
 import { addDays, daysOverdue } from "@/lib/dates";
 import { formatCzk, formatDate, formatDateTime, pragueToday } from "@/lib/format";
 import { EVENT_LABELS, SUBSCRIPTION_STATUS_LABELS, WEBSITE_STATUS_LABELS } from "@/lib/status-labels";
@@ -95,8 +96,13 @@ async function Detail({ params }: Pick<PageProps<"/subscriptions/[id]">, "params
           </CardHeader>
           <CardContent className="grid gap-4">
             <dl className="grid grid-cols-2 gap-y-1 text-sm">
-              <dt className="text-muted-foreground">Měsíčně</dt>
-              <dd className="text-right tabular-nums">{formatCzk(sub.priceHalere)}</dd>
+              <dt className="text-muted-foreground">Platba</dt>
+              <dd className="text-right tabular-nums">
+                {formatPeriodPrice(sub.priceHalere, sub.billingPeriod)}
+                {sub.billingPeriod === "yearly" ? (
+                  <span className="text-muted-foreground"> · {formatCzk(monthlyEquivalent(sub.priceHalere, "yearly"))} / měsíc</span>
+                ) : null}
+              </dd>
               <dt className="text-muted-foreground">Zaplaceno do</dt>
               <dd className={`text-right tabular-nums ${overdueDays ? "font-medium text-destructive" : ""}`}>
                 {formatDate(sub.paidUntil)}
@@ -109,7 +115,12 @@ async function Detail({ params }: Pick<PageProps<"/subscriptions/[id]">, "params
               <dt className="text-muted-foreground">Začátek</dt>
               <dd className="text-right tabular-nums">{formatDate(sub.startedOn)}</dd>
             </dl>
-            <PaymentForm subscriptionId={sub.id} priceHalere={sub.priceHalere} disabled={cancelled} />
+            <PaymentForm
+              subscriptionId={sub.id}
+              priceHalere={sub.priceHalere}
+              billingPeriod={sub.billingPeriod}
+              disabled={cancelled}
+            />
           </CardContent>
         </Card>
 
@@ -123,6 +134,7 @@ async function Detail({ params }: Pick<PageProps<"/subscriptions/[id]">, "params
               current={{
                 tierId: sub.tierId,
                 name: sub.name,
+                billingPeriod: sub.billingPeriod,
                 priceHalere: sub.priceHalere,
                 features: sub.features,
               }}

@@ -20,6 +20,7 @@ const VARIABLES: [string, string][] = [
   ["{{issues}}", "konkrétní problémy současného webu (odrážky ze skóre)"],
   ["{{previewUrl}}", "odkaz na náhled návrhu"],
   ["{{packageName}} / {{monthlyPrice}}", "navržený balíček a měsíční cena"],
+  ["{{yearlyPrice}}", "cena při roční platbě, např. „9 900 Kč ročně (2 měsíce zdarma)“"],
   ["{{tierComparison}}", "srovnání balíčků (z kalkulačky v Tarifech, jinak šablony tarifů)"],
   ["{{websiteDomain}}", "doména webu klienta"],
   ["{{senderName}}", "vaše jméno z EMAIL_FROM"],
@@ -28,7 +29,7 @@ const VARIABLES: [string, string][] = [
 ];
 
 const CONTRACT_VARIABLES =
-  "{{providerName}}, {{providerIco}}, {{providerAddress}}, {{clientName}}, {{clientIco}}, {{clientAddress}}, {{domain}}, {{packageName}}, {{monthlyPrice}}, {{city}}, {{date}}";
+  "{{providerName}}, {{providerIco}}, {{providerAddress}}, {{clientName}}, {{clientIco}}, {{clientAddress}}, {{domain}}, {{packageName}}, {{monthlyPrice}}, {{yearlyPrice}}, {{city}}, {{date}}";
 
 export default function TemplatesPage() {
   return (

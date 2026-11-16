@@ -12,6 +12,7 @@ import {
   websites,
 } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth-guard";
+import type { BillingPeriod } from "@/lib/billing-period";
 import { pragueToday } from "@/lib/format";
 import { jobStage, relevantSentKinds, type JobStage } from "@/lib/job-stage";
 import { fillMonths, type RevenuePoint } from "@/lib/revenue";
@@ -40,7 +41,11 @@ export async function getDashboardStats(at?: Date): Promise<DashboardStats> {
   const [[web], [subs], [newLeads], [offers], [replies], leadCounts] = await Promise.all([
     db.select({ n: count() }).from(websites).where(eq(websites.status, "live")),
     db
-      .select({ n: count(), mrr: sum(subscriptions.priceHalere).mapWith(Number) })
+      .select({
+        n: count(),
+        // Yearly subscriptions count with 1/12 of their yearly price.
+        mrr: sql<number>`coalesce(round(sum(case when ${subscriptions.billingPeriod} = 'yearly' then ${subscriptions.priceHalere} / 12.0 else ${subscriptions.priceHalere} end)), 0)`.mapWith(Number),
+      })
       .from(subscriptions)
       .where(eq(subscriptions.status, "active")),
     db.select({ n: count() }).from(leads).where(gte(leads.createdAt, weekAgo)),
@@ -94,6 +99,7 @@ export type WebsiteTile = {
     name: string;
     tierName: string | null;
     priceHalere: number;
+    billingPeriod: BillingPeriod;
     paidUntil: string;
     status: string;
   } | null;
@@ -119,6 +125,7 @@ export async function getWebsiteTiles(): Promise<WebsiteTile[]> {
       clientName: clients.businessName,
       subName: subscriptions.name,
       subPrice: subscriptions.priceHalere,
+      subPeriod: subscriptions.billingPeriod,
       subPaidUntil: subscriptions.paidUntil,
       subStatus: subscriptions.status,
       tierName: subscriptionTiers.name,
@@ -188,6 +195,7 @@ export async function getWebsiteTiles(): Promise<WebsiteTile[]> {
               name: r.subName!,
               tierName: r.tierName,
               priceHalere: r.subPrice,
+              billingPeriod: r.subPeriod ?? "monthly",
               paidUntil: r.subPaidUntil!,
               status: r.subStatus!,
             }
@@ -212,6 +220,7 @@ export async function getTimeline(limit = 30) {
       note: subscriptionEvents.note,
       clientName: clients.businessName,
       subscriptionName: subscriptions.name,
+      billingPeriod: subscriptions.billingPeriod,
     })
     .from(subscriptionEvents)
     .innerJoin(clients, eq(clients.id, subscriptionEvents.clientId))

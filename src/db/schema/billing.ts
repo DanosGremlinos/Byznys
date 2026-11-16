@@ -13,7 +13,13 @@ import {
 } from "drizzle-orm/pg-core";
 import { clients, websites } from "./clients";
 import { createdAt, updatedAt } from "./common";
-import { dunningRunStatus, dunningStepStatus, subscriptionEventType, subscriptionStatus } from "./enums";
+import {
+  billingPeriod,
+  dunningRunStatus,
+  dunningStepStatus,
+  subscriptionEventType,
+  subscriptionStatus,
+} from "./enums";
 import { emails } from "./messaging";
 
 // No payments or invoices in the app: money is collected outside it (handled personally).
@@ -50,7 +56,9 @@ export const subscriptions = pgTable(
     tierId: uuid().references(() => subscriptionTiers.id, { onDelete: "set null" }),
     /** Package name shown to the client (prefilled from the template, editable). */
     name: text().notNull(),
-    /** Monthly price agreed with this client. */
+    /** Monthly or yearly payment (yearly is cheaper, see src/config/pricing.ts). */
+    billingPeriod: billingPeriod().notNull().default("monthly"),
+    /** Price agreed with this client, per billing period (per month, or per year when yearly). */
     priceHalere: integer().notNull(),
     /** Features agreed with this client. */
     features: jsonb().$type<string[]>().notNull().default([]),

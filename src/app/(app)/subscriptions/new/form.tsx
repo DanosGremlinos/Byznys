@@ -7,6 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  BILLING_PERIODS,
+  PERIOD_LABELS,
+  PERIOD_UNIT,
+  priceForPeriod,
+  yearlyBonusText,
+  type BillingPeriod,
+} from "@/lib/billing-period";
+import { formatCzk } from "@/lib/format";
 import { createSubscriptionAction, type FormState } from "../actions";
 
 type Props = {
@@ -53,6 +62,8 @@ export function NewSubscriptionForm({
       ? { name: fromOffer.name, monthlyPriceHalere: fromOffer.priceHalere, features: fromOffer.features }
       : template;
   const clientName = clients.find((c) => c.id === clientId)?.name ?? "";
+  const [period, setPeriod] = useState<BillingPeriod>("monthly");
+  const price = tier ? priceForPeriod(tier.monthlyPriceHalere, period) : null;
 
   return (
     <form action={action} className="grid max-w-3xl gap-5">
@@ -123,6 +134,24 @@ export function NewSubscriptionForm({
           </div>
         </div>
       ) : null}
+      <div className="grid gap-1.5">
+        <Label>Platba</Label>
+        <div className="flex flex-wrap gap-4" role="radiogroup" aria-label="Platba">
+          {BILLING_PERIODS.map((p) => (
+            <label key={p} className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="billingPeriod"
+                value={p}
+                checked={period === p}
+                onChange={() => setPeriod(p)}
+              />
+              {PERIOD_LABELS[p]}
+              {p === "yearly" ? <span className="text-muted-foreground">({yearlyBonusText()})</span> : null}
+            </label>
+          ))}
+        </div>
+      </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="grid gap-1.5">
           <Label htmlFor="tierId">Šablona balíčku</Label>
@@ -148,15 +177,20 @@ export function NewSubscriptionForm({
           <Input id="name" name="name" defaultValue={tier?.name ?? ""} key={`n-${tierId}-${useOffer}`} required />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="price">Cena (Kč / měsíc)</Label>
+          <Label htmlFor="price">Cena (Kč / {PERIOD_UNIT[period]})</Label>
           <Input
             id="price"
             name="price"
             inputMode="decimal"
-            defaultValue={tier ? String(tier.monthlyPriceHalere / 100) : ""}
-            key={`p-${tierId}-${useOffer}`}
+            defaultValue={price !== null ? String(price / 100) : ""}
+            key={`p-${tierId}-${useOffer}-${period}`}
             required
           />
+          {period === "yearly" && tier ? (
+            <p className="text-xs text-muted-foreground">
+              Měsíčně by to bylo {formatCzk(tier.monthlyPriceHalere * 12)} za rok.
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="grid gap-1.5">

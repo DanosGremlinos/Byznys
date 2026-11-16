@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from "@/db";
 import { requireAdmin } from "@/lib/auth-guard";
+import { formatPeriodPrice } from "@/lib/billing-period";
 import { addDays } from "@/lib/dates";
 import { formatCzk, formatDate, formatDateTime } from "@/lib/format";
 import { JOB_STAGE_TONE } from "@/lib/job-stage";
@@ -111,7 +112,7 @@ async function Job({ params }: Pick<PageProps<"/websites/[id]">, "params">) {
               <div className="grid gap-3 text-sm">
                 <div className="flex flex-wrap items-baseline gap-x-3">
                   <span className="text-lg font-semibold">{sub.name}</span>
-                  <span className="tabular-nums">{formatCzk(sub.priceHalere)} / měsíc</span>
+                  <span className="tabular-nums">{formatPeriodPrice(sub.priceHalere, sub.billingPeriod)}</span>
                   <Badge variant={sub.status === "active" ? "secondary" : "outline"}>
                     {SUBSCRIPTION_STATUS_LABELS[sub.status]}
                   </Badge>

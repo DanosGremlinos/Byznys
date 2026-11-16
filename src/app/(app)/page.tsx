@@ -5,6 +5,7 @@ import { WebsiteTiles } from "@/components/dashboard/website-tiles";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PERIOD_SHORT } from "@/lib/billing-period";
 import { formatCzk, formatDate, formatDateTime, pragueToday } from "@/lib/format";
 import { EVENT_LABELS } from "@/lib/status-labels";
 import { getDashboardStats, getRevenue, getTimeline, getWebsiteTiles } from "@/server/dashboard";
@@ -118,7 +119,7 @@ async function Timeline() {
                 ? ` · ${formatCzk(e.fromPriceHalere)} → ${formatCzk(e.toPriceHalere)}`
                 : null}
               {e.type === "created" && e.toPriceHalere !== null
-                ? ` · ${formatCzk(e.toPriceHalere)} / měs.`
+                ? ` · ${formatCzk(e.toPriceHalere)} / ${PERIOD_SHORT[e.billingPeriod]}`
                 : null}
             </p>
           </div>

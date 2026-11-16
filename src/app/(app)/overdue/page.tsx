@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PERIOD_UNIT } from "@/lib/billing-period";
 import { formatCzk, formatDate, formatDateTime } from "@/lib/format";
 import { WEBSITE_STATUS_LABELS } from "@/lib/status-labels";
 import { lastDunningJobs, listOverdue, type OverdueSort } from "@/server/billing/queries";
@@ -128,7 +129,10 @@ async function List({ searchParams }: Pick<PageProps<"/overdue">, "searchParams"
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-semibold tabular-nums">{formatCzk(r.priceHalere)}</p>
+                    <p className="text-lg font-semibold tabular-nums">
+                      {formatCzk(r.priceHalere)}
+                      {r.billingPeriod === "yearly" ? <span className="text-sm font-normal"> / rok</span> : null}
+                    </p>
                     <p className="text-sm text-destructive tabular-nums">
                       {r.daysOverdue} {r.daysOverdue === 1 ? "den" : r.daysOverdue < 5 ? "dny" : "dní"} po
                       splatnosti (od {formatDate(r.dueDate)})
@@ -155,7 +159,7 @@ async function List({ searchParams }: Pick<PageProps<"/overdue">, "searchParams"
                 <div className="flex flex-wrap gap-2">
                   <form action={quickPayAction.bind(null, r.subscriptionId)}>
                     <Button type="submit" size="sm">
-                      Zaplaceno (1 měsíc)
+                      Zaplaceno (1 {PERIOD_UNIT[r.billingPeriod]})
                     </Button>
                   </form>
                   {r.run && (r.run.status === "active" || r.run.status === "paused") ? (

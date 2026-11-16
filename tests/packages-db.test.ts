@@ -79,7 +79,8 @@ describe.skipIf(!url)("packages and jobs (DB)", () => {
     const email = await db.query.emails.findFirst({ where: eq(emails.id, emailId) });
     const premium = offer.packages.find((p) => p.recommended)!;
     expect(email?.bodyText).toContain(`★ ${premium.name}`);
-    expect(email?.bodyText).toContain("(nejoblíbenější)");
+    expect(email?.bodyText).toContain("– nejoblíbenější");
+    expect(email?.bodyText).toContain("ročně (2 měsíce zdarma)");
     const updated = await db.query.packageOffers.findFirst({ where: eq(packageOffers.id, offer.id) });
     expect(updated?.emailId).toBe(emailId);
 

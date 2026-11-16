@@ -8,6 +8,15 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  BILLING_PERIODS,
+  PERIOD_LABELS,
+  PERIOD_MONTHS,
+  PERIOD_UNIT,
+  monthlyFromYearly,
+  priceForPeriod,
+  type BillingPeriod,
+} from "@/lib/billing-period";
+import {
   cancelSubscriptionAction,
   changePackageAction,
   recordPaymentAction,
@@ -17,17 +26,22 @@ import {
 export function PaymentForm({
   subscriptionId,
   priceHalere,
+  billingPeriod,
   disabled,
 }: {
   subscriptionId: string;
+  /** Price per billing period. */
   priceHalere: number;
+  billingPeriod: BillingPeriod;
   disabled: boolean;
 }) {
+  const periodMonths = PERIOD_MONTHS[billingPeriod];
   const [state, action, pending] = useActionState<FormState, FormData>(
     recordPaymentAction.bind(null, subscriptionId),
     {},
   );
-  const [months, setMonths] = useState(1);
+  // One payment covers one billing period (a month, or a whole year).
+  const [months, setMonths] = useState(periodMonths);
   return (
     <form action={action} className="grid gap-3">
       <div className="grid gap-3 sm:grid-cols-[7rem_1fr]">
@@ -49,7 +63,7 @@ export function PaymentForm({
             id="amount"
             name="amount"
             inputMode="decimal"
-            defaultValue={String((priceHalere * months) / 100)}
+            defaultValue={String(Math.round((priceHalere * months) / periodMonths) / 100)}
             key={months}
           />
         </div>
@@ -66,6 +80,13 @@ export function PaymentForm({
 }
 
 type Tier = { id: string; name: string; monthlyPriceHalere: number; features: string[] };
+type Current = {
+  tierId: string | null;
+  name: string;
+  billingPeriod: BillingPeriod;
+  priceHalere: number;
+  features: string[];
+};
 
 export function PackageForm({
   subscriptionId,
@@ -74,7 +95,7 @@ export function PackageForm({
   disabled,
 }: {
   subscriptionId: string;
-  current: { tierId: string | null; name: string; priceHalere: number; features: string[] };
+  current: Current;
   tiers: Tier[];
   disabled: boolean;
 }) {
@@ -83,14 +104,39 @@ export function PackageForm({
     {},
   );
   const [tierId, setTierId] = useState(current.tierId ?? "");
+  const [period, setPeriod] = useState<BillingPeriod>(current.billingPeriod);
   const tier = tiers.find((t) => t.id === tierId);
   const isCurrent = tierId === (current.tierId ?? "");
+  // When only the payment period changes, the current price is converted with the yearly rule
+  // ("2 měsíce zdarma"); a different template prefills its own price for the chosen period.
+  const currentMonthly =
+    current.billingPeriod === "yearly" ? monthlyFromYearly(current.priceHalere) : current.priceHalere;
   const values =
     isCurrent || !tier
-      ? current
-      : { name: tier.name, priceHalere: tier.monthlyPriceHalere, features: tier.features };
+      ? {
+          name: current.name,
+          features: current.features,
+          priceHalere:
+            period === current.billingPeriod ? current.priceHalere : priceForPeriod(currentMonthly, period),
+        }
+      : { name: tier.name, priceHalere: priceForPeriod(tier.monthlyPriceHalere, period), features: tier.features };
   return (
     <form action={action} className="grid gap-3">
+      <div className="grid gap-1.5">
+        <Label htmlFor="pkg-period">Platba</Label>
+        <NativeSelect
+          id="pkg-period"
+          name="billingPeriod"
+          value={period}
+          onChange={(e) => setPeriod(e.target.value as BillingPeriod)}
+        >
+          {BILLING_PERIODS.map((p) => (
+            <option key={p} value={p}>
+              {PERIOD_LABELS[p]}
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="grid gap-1.5">
           <Label htmlFor="tierId">Šablona</Label>
@@ -108,13 +154,13 @@ export function PackageForm({
           <Input id="pkg-name" name="name" defaultValue={values.name} key={`n-${tierId}`} required />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="pkg-price">Cena (Kč / měsíc)</Label>
+          <Label htmlFor="pkg-price">Cena (Kč / {PERIOD_UNIT[period]})</Label>
           <Input
             id="pkg-price"
             name="price"
             inputMode="decimal"
             defaultValue={String(values.priceHalere / 100)}
-            key={`p-${tierId}`}
+            key={`p-${tierId}-${period}`}
             required
           />
         </div>

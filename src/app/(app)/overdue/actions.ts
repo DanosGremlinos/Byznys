@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { db } from "@/db";
 import { requireAdmin } from "@/lib/auth-guard";
+import { PERIOD_MONTHS } from "@/lib/billing-period";
 import { setRunPaused } from "@/server/billing/dunning";
 import { recordPayment } from "@/server/billing/subscriptions";
 import { createJob, kickJob } from "@/server/jobs";
@@ -21,11 +22,14 @@ export async function setRunPausedAction(runId: string, paused: boolean) {
   refresh();
 }
 
-/** Quick "Zaplaceno" for one month at the agreed price. */
+/** Quick "Zaplaceno" for one billing period (a month or a year) at the agreed price. */
 export async function quickPayAction(subscriptionId: string) {
   await requireAdmin();
   const sub = await db.query.subscriptions.findFirst({ where: (s, { eq }) => eq(s.id, subscriptionId) });
   if (!sub) return;
-  await recordPayment(db, subscriptionId, { months: 1, amountHalere: sub.priceHalere });
+  await recordPayment(db, subscriptionId, {
+    months: PERIOD_MONTHS[sub.billingPeriod],
+    amountHalere: sub.priceHalere,
+  });
   refresh();
 }

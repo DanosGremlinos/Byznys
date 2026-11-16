@@ -23,6 +23,7 @@ const czk = z
   .transform((v) => Number(v.replace(/\s/g, "").replace(",", ".")))
   .refine((n) => Number.isFinite(n) && n > 0, "Zadejte kladnou částku v Kč")
   .transform((n) => Math.round(n * 100));
+const period = z.enum(["monthly", "yearly"]).default("monthly");
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Neplatné datum");
 const features = z
   .string()
@@ -41,6 +42,7 @@ const newSchema = z.object({
   newWebsiteDomain: z.string().trim().max(200).optional(),
   tierId: z.string().optional(),
   name: z.string().trim().min(1, "Zadejte název balíčku").max(200),
+  billingPeriod: period,
   price: czk,
   features,
   startedOn: date,
@@ -65,6 +67,7 @@ export async function createSubscriptionAction(_prev: FormState, formData: FormD
           : null,
       tierId: d.tierId || null,
       name: d.name,
+      billingPeriod: d.billingPeriod,
       priceHalere: d.price,
       features: d.features,
       startedOn: d.startedOn,
@@ -112,6 +115,7 @@ export async function recordPaymentAction(
 const packageSchema = z.object({
   tierId: z.string().optional(),
   name: z.string().trim().min(1, "Zadejte název balíčku").max(200),
+  billingPeriod: period,
   price: czk,
   features,
 });
@@ -128,6 +132,7 @@ export async function changePackageAction(
     await changePackage(db, subscriptionId, {
       tierId: parsed.data.tierId || null,
       name: parsed.data.name,
+      billingPeriod: parsed.data.billingPeriod,
       priceHalere: parsed.data.price,
       features: parsed.data.features,
     });

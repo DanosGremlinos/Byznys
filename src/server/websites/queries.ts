@@ -121,7 +121,7 @@ export async function getJobDetail(db: Database, websiteId: string) {
         client: { columns: { id: true, businessName: true } },
         website: { columns: { id: true, name: true, domain: true } },
         email: { columns: { id: true, status: true, sentAt: true } },
-        subscription: { columns: { id: true, name: true, priceHalere: true, status: true } },
+        subscription: { columns: { id: true, name: true, priceHalere: true, billingPeriod: true, status: true } },
       },
     }),
     sentOfferKindsByClient(db, [client.id]),

@@ -28,3 +28,9 @@ export const PRICING_CONFIG = {
 } as const;
 
 export type PricingConfig = typeof PRICING_CONFIG;
+
+/**
+ * Yearly subscription: the client pays for `yearlyPaidMonths` months and gets 12 ("2 měsíce zdarma").
+ * Owner's choice. The yearly price of a package = monthly price × this.
+ */
+export const YEARLY_PAID_MONTHS = 10;

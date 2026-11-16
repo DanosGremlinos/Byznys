@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { yearlyBonusText, yearlyPrice } from "@/lib/billing-period";
 import { formatCzk } from "@/lib/format";
 import {
   calculatePackages,
@@ -164,6 +165,9 @@ export function PackageCalculator({
                     }}
                     className="text-lg font-semibold tabular-nums"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Ročně {formatCzk(yearlyPrice(p.priceHalere))} ({yearlyBonusText()})
+                  </p>
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor={`pkg-features-${i}`}>Co obsahuje (jedna věc na řádek)</Label>

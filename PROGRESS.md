@@ -487,3 +487,29 @@ Branch `claude/charming-noether-cwusyd` (based on `claude/busy-clarke-49tnmm`). 
 ### Checks
 - typecheck ✅, lint ✅, tests ✅ (108, incl. DB: limit reached, two concurrent searches, yesterday not counted,
   limit 0; every default template renders without leftover placeholders).
+
+## Úprava 4 — Roční předplatné ✅
+
+Owner's decisions: yearly = **10 × monthly price ("2 měsíce zdarma")**; schema change approved.
+
+### Database change ⚠️
+- `drizzle/0003_yearly_billing.sql`: enum `billing_period` (monthly, yearly) and
+  `subscriptions.billing_period` (default `monthly`). Existing subscriptions stay monthly; no data changes.
+- `subscriptions.price_halere` is now the price **per billing period** (per month, or per year).
+
+### What changed
+- `src/config/pricing.ts`: `YEARLY_PAID_MONTHS = 10`; helpers in `src/lib/billing-period.ts`
+  (yearly price, monthly equivalent for MRR, labels).
+- New subscription: choose Měsíčně / Ročně; the price is prefilled from the template (yearly = 10×).
+- Subscription detail: shows the price per period (yearly also per month); "Zaplaceno" defaults to one
+  period (12 months for yearly); package form can switch the period (price converted with the 10× rule).
+  Switching period alone is logged as a change, not a downgrade.
+- Overdue: amount per period, quick "Zaplaceno (1 rok)" for yearly. Reminders ask for the period price.
+- Dashboard: MRR counts yearly subscriptions as 1/12 of the yearly price; tiles and timeline show the unit.
+- Tiers page and package calculator show the yearly price next to the monthly one.
+- Emails: `{{yearlyPrice}}` ("9 900 Kč ročně (2 měsíce zdarma)"); package comparison in L3 shows both prices;
+  L2/L3 templates and the contract template mention the yearly option; AI gets the yearly price as a fact.
+
+### Checks
+- typecheck ✅, lint ✅, tests ✅ (113; new: yearly helpers, yearly subscription payment + reminder amount,
+  switching to yearly), `next build` ✅.

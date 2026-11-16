@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from "@/db";
 import { requireAdmin } from "@/lib/auth-guard";
+import { yearlyPrice } from "@/lib/billing-period";
 import { formatCzk } from "@/lib/format";
 import { listTiers } from "@/server/billing/queries";
 import { calculatorOptions, listPackageOffers } from "@/server/billing/package-offers";
@@ -97,7 +98,9 @@ async function Tiers() {
         <Card key={t.id}>
           <CardHeader className="flex flex-row items-center gap-2">
             <CardTitle>{t.name}</CardTitle>
-            <span className="text-sm text-muted-foreground">{formatCzk(t.monthlyPriceHalere)} / měsíc</span>
+            <span className="text-sm text-muted-foreground">
+              {formatCzk(t.monthlyPriceHalere)} / měsíc · ročně {formatCzk(yearlyPrice(t.monthlyPriceHalere))}
+            </span>
             {!t.isActive ? <Badge variant="outline">neaktivní</Badge> : null}
           </CardHeader>
           <CardContent>

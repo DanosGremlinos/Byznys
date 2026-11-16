@@ -1,5 +1,6 @@
 // Pure package calculator ("popcorn" pricing). Runs in the browser (live preview) and on the server.
 import { PRICING_CONFIG, type PricingConfig } from "@/config/pricing";
+import { yearlyOfferText } from "@/lib/billing-period";
 import { formatCzk } from "@/lib/format";
 
 export type PackageTemplate = { id: string; name: string; features: string[] };
@@ -110,7 +111,7 @@ export function decoyExplanation(packages: OfferedPackage[]): string | null {
 export function packageComparisonText(packages: OfferedPackage[]): string {
   return packages
     .map((p, i) => {
-      const head = `${p.recommended ? "★ " : ""}${p.name} – ${kc(p.priceHalere)} měsíčně${p.recommended ? " (nejoblíbenější)" : ""}`;
+      const head = `${p.recommended ? "★ " : ""}${p.name} – ${kc(p.priceHalere)} měsíčně, nebo ${yearlyOfferText(p.priceHalere)}${p.recommended ? " – nejoblíbenější" : ""}`;
       const lines = p.features.map((f) => `  • ${f}`);
       const prev = packages[i - 1];
       if (p.recommended && prev && p.priceHalere > prev.priceHalere) {

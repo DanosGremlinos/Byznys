@@ -11,7 +11,8 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { addDays } from "@/lib/dates";
-import { formatCzk, formatDate, pragueToday } from "@/lib/format";
+import { formatPeriodPrice } from "@/lib/billing-period";
+import { formatDate, pragueToday } from "@/lib/format";
 import { SUBSCRIPTION_STATUS_LABELS } from "@/lib/status-labels";
 import { cn } from "@/lib/utils";
 import { listSubscriptions, listTiers, upcomingRenewals } from "@/server/billing/queries";
@@ -73,7 +74,7 @@ async function Renewals() {
                   <span className="shrink-0 text-right">
                     <span className="block tabular-nums">{formatDate(r.nextPayment)}</span>
                     <span className="block text-xs text-muted-foreground tabular-nums">
-                      {formatCzk(r.priceHalere)}
+                      {formatPeriodPrice(r.priceHalere, r.billingPeriod)}
                     </span>
                   </span>
                 </Link>
@@ -145,7 +146,9 @@ async function List({ searchParams }: Pick<PageProps<"/subscriptions">, "searchP
                     <div className="text-xs text-muted-foreground">{r.domain ?? r.websiteName}</div>
                   </TableCell>
                   <TableCell>{r.name}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatCzk(r.priceHalere)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatPeriodPrice(r.priceHalere, r.billingPeriod)}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={r.status === "active" ? "secondary" : "outline"}>
                       {SUBSCRIPTION_STATUS_LABELS[r.status]}

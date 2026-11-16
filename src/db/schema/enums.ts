@@ -55,6 +55,8 @@ export const blacklistReason = pgEnum("blacklist_reason", [
   "manual",
 ]);
 
+/** How often the client pays; the subscription price is per this period. */
+export const billingPeriod = pgEnum("billing_period", ["monthly", "yearly"]);
 export const subscriptionStatus = pgEnum("subscription_status", ["active", "paused", "cancelled"]);
 export const subscriptionEventType = pgEnum("subscription_event_type", [
   "created",

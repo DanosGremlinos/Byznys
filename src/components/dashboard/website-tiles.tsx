@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
+import { PERIOD_SHORT } from "@/lib/billing-period";
 import { formatCzk, formatDate } from "@/lib/format";
 import { JOB_GROUP_LABELS, JOB_STAGE_TONE, type JobStageGroup } from "@/lib/job-stage";
 import { WEBSITE_STATUS_LABELS } from "@/lib/status-labels";
@@ -129,7 +130,7 @@ export function WebsiteTiles({
                       <dd className="text-right">{t.subscription.name}</dd>
                       <dt className="text-muted-foreground">Cena</dt>
                       <dd className="text-right tabular-nums">
-                        {formatCzk(t.subscription.priceHalere)} / měs.
+                        {formatCzk(t.subscription.priceHalere)} / {PERIOD_SHORT[t.subscription.billingPeriod]}
                       </dd>
                       <dt className="text-muted-foreground">
                         {t.subscription.status === "cancelled" ? "Zaplaceno do" : "Další platba"}
