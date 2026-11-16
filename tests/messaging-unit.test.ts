@@ -135,8 +135,8 @@ describe("offer content", () => {
       { key: "slow", fired: false, weight: 10, points: 0 },
     ]);
     expect(text.split("\n")).toEqual([
-      "- Na mobilu se web zobrazuje jako zmenšená verze pro počítač, přitom většina lidí dnes hledá právě z telefonu.",
-      "- Prohlížeč u vašeho webu ukazuje „Nezabezpečeno“, což některé návštěvníky odradí.",
+      "- Web není přizpůsobený mobilům – většina lidí vás hledá z telefonu a špatně čitelný web hned zavře.",
+      "- Web nemá zabezpečení – prohlížeč u něj ukazuje varování „Nezabezpečeno“, které snižuje důvěru a odrazuje zákazníky.",
     ]);
   });
   it("lists the package templates", () => {
@@ -166,13 +166,13 @@ describe("contract PDF", () => {
 });
 
 describe("issue wording", () => {
-  it("speaks plainly about speed and has no technical terms", () => {
+  it("names what is missing and its effect on the business, without technical details", () => {
     const t = issuesText([
       { key: "slow", fired: true, weight: 10, points: 10, detail: "PageSpeed mobil 47/100" },
       { key: "missingSeo", fired: true, weight: 5, points: 5, detail: "Chybí: meta description" },
     ]);
-    expect(t).toContain("Google mu dává 47 bodů ze 100");
-    expect(t).not.toMatch(/PageSpeed|meta description/);
+    expect(t).toContain("Web se načítá pomalu – část návštěvníků odejde");
+    expect(t).not.toMatch(/PageSpeed|meta description|\d/);
   });
   it("every default template renders without leftover placeholders", () => {
     for (const tpl of DEFAULT_EMAIL_TEMPLATES) {
@@ -186,7 +186,7 @@ describe("issue wording", () => {
 });
 
 describe("reputation wording", () => {
-  it("has no nested brackets", () => {
+  it("stays general (no rating numbers)", () => {
     const t = issuesText([
       {
         key: "strongReputationWeakWeb",
@@ -196,6 +196,8 @@ describe("reputation wording", () => {
         detail: "Hodnocení 4,4 (305 recenzí)",
       },
     ]);
-    expect(t).toBe("- Na Googlu máte výborné hodnocení 4,4 z 5 od 305 lidí, ale web to zatím vůbec neukazuje.");
+    expect(t).toBe(
+      "- Na Googlu máte výborné hodnocení, ale web ho vůbec nevyužívá – spokojení zákazníci jsou nejlepší reklama a teď zůstávají schovaní.",
+    );
   });
 });

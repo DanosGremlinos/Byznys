@@ -43,37 +43,36 @@ export const LEVEL_LABELS: Record<string, string> = {
 };
 
 /**
- * Customer-facing wording of the score factors: plain language for a business owner, no technical
- * terms (the internal details like "meta description" stay in the app).
+ * Customer-facing wording of the score factors. Each line names simply what is missing and then what it
+ * costs the business (lost customers, trust, visibility). No technical details or numbers: those stay
+ * in the app for us.
  */
 const ISSUE_TEXT: Record<ScoreFactorKey, (detail?: string) => string> = {
   noWebsite: (d) =>
     d?.includes("nepodařilo")
-      ? "Váš web se mi nepodařilo otevřít, takže kdo na něj klikne z Google Map, skončí na chybě."
-      : "Na Google Mapách u vás chybí odkaz na web, takže zákazníci nemají kde zjistit víc o vaší nabídce.",
-  outdatedSite: () => "Web na první pohled působí zastarale, a to může návštěvníky odradit.",
+      ? "Váš web nejde otevřít – každý, kdo na něj klikne, odchází s nepořízenou a často skončí u konkurence."
+      : "Chybí vám web – lidé, kteří vás najdou na Google Mapách, nemají kde zjistit víc a častěji zvolí konkurenci, která web má.",
+  outdatedSite: () =>
+    "Web působí zastarale – zákazníci si podle něj dělají první dojem o celé firmě a může je odradit dřív, než se vám ozvou.",
   poorDesign: (d) =>
     d?.includes("klikací telefon")
-      ? "Na webu nejde jedním klepnutím zavolat ani napsat, přitom právě tak vás lidé z mobilu kontaktují."
-      : "Vzhled webu už neodpovídá tomu, co dnes lidé na internetu čekají.",
+      ? "Z webu vám nejde jednoduše zavolat ani napsat – každý krok navíc znamená, že se část lidí neozve vůbec."
+      : "Web nepůsobí moderně – a to vás může stát zákazníky, kteří se rozhodují podle prvního dojmu.",
   notMobileFriendly: () =>
-    "Na mobilu se web zobrazuje jako zmenšená verze pro počítač, přitom většina lidí dnes hledá právě z telefonu.",
-  slow: (d) => {
-    const score = d?.match(/(\d+)\/100/)?.[1];
-    return `Na mobilu se web načítá pomalu${score ? ` (Google mu dává ${score} bodů ze 100)` : ""} a část lidí to vzdá dřív, než se stránka ukáže.`;
-  },
-  noHttps: () => "Prohlížeč u vašeho webu ukazuje „Nezabezpečeno“, což některé návštěvníky odradí.",
-  missingSeo: () => "Web nemá vyplněné základní informace pro Google, takže vás ve vyhledávání najde méně lidí.",
-  strongReputationWeakWeb: (d) => {
-    const m = d?.match(/Hodnocení ([\d,]+) \((\d+) recenzí\)/);
-    return m
-      ? `Na Googlu máte výborné hodnocení ${m[1]} z 5 od ${m[2]} lidí, ale web to zatím vůbec neukazuje.`
-      : "Na Googlu máte výborné hodnocení, ale web to zatím vůbec neukazuje.";
-  },
+    "Web není přizpůsobený mobilům – většina lidí vás hledá z telefonu a špatně čitelný web hned zavře.",
+  slow: () =>
+    "Web se načítá pomalu – část návštěvníků odejde dřív, než se stránka ukáže, a Google takové weby zobrazuje níž.",
+  noHttps: () =>
+    "Web nemá zabezpečení – prohlížeč u něj ukazuje varování „Nezabezpečeno“, které snižuje důvěru a odrazuje zákazníky.",
+  missingSeo: () =>
+    "Web není nastavený pro vyhledávače – když lidé hledají vaše služby na Googlu, najdou spíš konkurenci než vás.",
+  strongReputationWeakWeb: () =>
+    "Na Googlu máte výborné hodnocení, ale web ho vůbec nevyužívá – spokojení zákazníci jsou nejlepší reklama a teď zůstávají schovaní.",
 };
 
 /** Used when no specific problem was found (e.g. the website could not be analysed yet). */
-export const GENERIC_ISSUE = "- Web by mohl lépe ukázat, co nabízíte, a přivést vám víc zákazníků.";
+export const GENERIC_ISSUE =
+  "- Web nevyužívá všechno, co by mohl – dobře udělaný web dokáže přivádět nové zákazníky i bez placené reklamy.";
 
 export function issuesText(factors: ScoreFactorResult[] | null | undefined): string {
   const lines = (factors ?? [])
