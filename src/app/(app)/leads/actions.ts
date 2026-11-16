@@ -21,12 +21,14 @@ export async function startLeadSearch(_prev: SearchState, formData: FormData): P
   if (!process.env.GOOGLE_PLACES_API_KEY) {
     return { error: "Chybí GOOGLE_PLACES_API_KEY – vyhledávání zatím nelze spustit." };
   }
-  const job = await createJob(
-    "lead_search",
+  const [{ db }, { reserveLeadSearch }] = await Promise.all([import("@/db"), import("@/server/leads/quota")]);
+  const reserved = await reserveLeadSearch(
+    db,
     parsed.data,
     `Ve frontě: ${parsed.data.category}, ${parsed.data.city}`,
   );
-  kickJob(job.id);
+  if ("error" in reserved) return { error: reserved.error };
+  kickJob(reserved.jobId);
   refresh();
   return { ok: `Vyhledávání „${parsed.data.category}, ${parsed.data.city}“ běží na pozadí.` };
 }

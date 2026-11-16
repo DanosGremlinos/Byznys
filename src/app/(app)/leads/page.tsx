@@ -43,6 +43,9 @@ export default function LeadsPage({ searchParams }: PageProps<"/leads">) {
         <CardContent className="grid gap-4">
           <LeadSearchForm />
           <Suspense fallback={null}>
+            <SearchQuota />
+          </Suspense>
+          <Suspense fallback={null}>
             <Jobs />
           </Suspense>
         </CardContent>
@@ -51,6 +54,17 @@ export default function LeadsPage({ searchParams }: PageProps<"/leads">) {
         <LeadsTable searchParams={searchParams} />
       </Suspense>
     </>
+  );
+}
+
+async function SearchQuota() {
+  const [{ db }, { leadSearchQuota }] = await Promise.all([import("@/db"), import("@/server/leads/quota")]);
+  const { used, limit, remaining } = await leadSearchQuota(db);
+  return (
+    <p className={remaining === 0 ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
+      Dnes použito {used} z {limit} vyhledávání
+      {remaining === 0 ? " – limit je vyčerpaný, další půjde zítra." : ` (zbývá ${remaining}).`}
+    </p>
   );
 }
 
