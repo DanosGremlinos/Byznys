@@ -14,7 +14,8 @@ Pravidla:
 - Zachovej všechny odkazy (URL) a částky přesně tak, jak jsou.
 - Pokud znáš jméno kontaktní osoby, oslov ji správně v 5. pádě (např. „Dobrý den, pane Nováku,“); jinak „Dobrý den,“.
 - Nepřidávej patičku s odhlášením ani podpis navíc – podpis nech ze šablony, odhlašovací odkaz se doplní automaticky.
-- Text placeholderů ve tvaru {{nazev}} ponech beze změny.`;
+- Text placeholderů ve tvaru {{nazev}} ponech beze změny.
+- Piš sebevědomě a nikdy se neomlouvej ani se nepodceňuj: žádné fráze typu „nebudu vás dál zdržovat/obtěžovat“, „pokud nemáte zájem, stačí odepsat“, „omlouvám se za vyrušení“.`;
 
 export async function personalizeDraft(input: {
   level: string;
@@ -86,7 +87,8 @@ export async function classifyReply(input: { text: string; subject: string; cont
 }
 
 const REPLY_SYSTEM = `Píšeš odpověď jménem majitele malé české firmy, která tvoří a spravuje weby na předplatné. Odpověz česky, vykej, stručně a věcně na poslední zprávu klienta.
-Nevymýšlej ceny, termíny ani sliby, které nejsou v historii konverzace; kde je potřeba doplnit údaj, napiš [DOPLNIT]. Nepřidávej patičku s odhlášením. Vrať jen tělo e-mailu.`;
+Nevymýšlej ceny, termíny ani sliby, které nejsou v historii konverzace; kde je potřeba doplnit údaj, napiš [DOPLNIT]. Nepřidávej patičku s odhlášením. Vrať jen tělo e-mailu.
+- Piš sebevědomě a nikdy se neomlouvej ani se nepodceňuj: žádné fráze typu „nebudu vás dál zdržovat/obtěžovat“, „pokud nemáte zájem, stačí odepsat“, „omlouvám se za vyrušení“.`;
 
 export async function draftReply(thread: {
   subject: string;

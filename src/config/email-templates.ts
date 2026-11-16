@@ -4,6 +4,7 @@
 // Writing rules (deliverability + response rate):
 // - one person writing to one business: first person, plain language, no marketing phrases;
 // - short, one link, a simple question at the end;
+// - confident, never apologetic ("nebudu vás dál zdržovat", "pokud nemáte zájem, stačí odepsat" etc.);
 // - quiet opt-out line at the bottom (shown as a small "Odhlásit se" link in the HTML version).
 
 export type DefaultEmailTemplate = {
@@ -49,7 +50,7 @@ narazil jsem na {{businessName}} na Google Mapách a podíval se, jak se prezent
 
 Zkusil jsem proto připravit, jak by mohl vypadat váš nový web. Ukázka je tady: {{previewUrl}}
 
-Co na něj říkáte? Pokud se vám bude líbit, rád pošlu podrobnosti. A pokud ne, stačí krátce odepsat a nebudu vás dál zdržovat.
+Co na něj říkáte? Pokud se vám bude líbit, rád pošlu podrobnosti.
 
 S pozdravem
 {{senderName}}

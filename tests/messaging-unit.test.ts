@@ -181,6 +181,7 @@ describe("issue wording", () => {
       );
       expect(unresolvedPlaceholders(renderTemplate(tpl.body, vars))).toEqual([]);
       if (tpl.kind.startsWith("offer_")) expect(tpl.body).toContain("{{unsubscribeUrl}}");
+      expect(tpl.body).not.toMatch(/zdržovat|obtěžovat|pokud ne,|nemáte zájem|omlouvám/i);
     }
   });
 });
