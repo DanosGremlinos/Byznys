@@ -16,6 +16,7 @@ import { getLead } from "@/server/leads/queries";
 import { loadResearchTemplate, renderResearchPrompt } from "@/server/leads/research-prompt";
 import { SCORING_VERSION } from "@/server/leads/scoring";
 import { goToBuilderFromLead, reanalyzeLead } from "../actions";
+import { DeleteLeadButton } from "../delete-lead";
 import { ExplainScore } from "./explain";
 
 export const metadata: Metadata = { title: "Detail leadu" };
@@ -85,6 +86,7 @@ async function LeadDetail({ params }: Pick<PageProps<"/leads/[id]">, "params">) 
               </Link>
             </Button>
           ) : null}
+          <DeleteLeadButton leadId={lead.id} name={lead.name} backTo="/leads" label />
           <form action={goToBuilderFromLead.bind(null, lead.id)}>
             <Button type="submit" size="sm">
               <Hammer />

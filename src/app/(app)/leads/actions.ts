@@ -67,3 +67,12 @@ export async function explainScore(leadId: string): Promise<{ text?: string; err
     return { error: err instanceof Error ? err.message : "Vysvětlení se nepodařilo vygenerovat." };
   }
 }
+
+/** Deletes one lead. From the detail page it goes back to the list; in the list it just refreshes. */
+export async function deleteLeadAction(leadId: string, backTo: string | null) {
+  await requireAdmin();
+  const [{ db }, { deleteLead }] = await Promise.all([import("@/db"), import("@/server/leads/delete")]);
+  await deleteLead(db, leadId);
+  if (backTo) redirect(backTo.startsWith("/leads") ? backTo : "/leads");
+  refresh();
+}

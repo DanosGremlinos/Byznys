@@ -54,6 +54,8 @@ async function searchStage(ctx: JobContext, s: PipelineState) {
           target: leads.placeId,
           // Refresh Google data but keep pipeline status, notes and anything found on their website.
           set: {
+            // Found again: the lead moves to this (newest) search, so its results show all it found.
+            searchJobId: ctx.job.id,
             name: data.name,
             address: data.address,
             city: data.city,

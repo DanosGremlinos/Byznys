@@ -13,8 +13,17 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { LEAD_STATUS_LABELS } from "@/lib/status-labels";
-import { leadFilterOptions, listLeads, recentJobs, type LeadFilters } from "@/server/leads/queries";
+import { formatDate, formatDateTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import {
+  leadFilterOptions,
+  listLeads,
+  listSearchGroups,
+  recentJobs,
+  type LeadFilters,
+} from "@/server/leads/queries";
 import { goToBuilderFromLead, rescoreAll } from "./actions";
+import { DeleteLeadButton } from "./delete-lead";
 import { LeadSearchForm } from "./search-form";
 
 export const metadata: Metadata = { title: "Leady" };
@@ -79,24 +88,70 @@ function one(v: string | string[] | undefined) {
 
 async function LeadsTable({ searchParams }: Pick<PageProps<"/leads">, "searchParams">) {
   const sp = await searchParams;
+  const searches = await listSearchGroups();
+  // Default: the newest search, so new results aren't mixed into older ones. "all" shows every lead.
+  const requested = one(sp.search);
+  const search =
+    requested === "all" || requested === "none" || searches.groups.some((g) => g.id === requested)
+      ? requested
+      : (searches.groups[0]?.id ?? "all");
   const filters: LeadFilters = {
     q: one(sp.q),
     city: one(sp.city),
     category: one(sp.category),
     status: one(sp.status),
     minScore: Number(one(sp.minScore)) || undefined,
+    search: search === "all" ? undefined : search,
   };
   const [rows, options] = await Promise.all([listLeads(filters), leadFilterOptions()]);
+  const current = searches.groups.find((g) => g.id === search);
+  const chip = (key: string, label: React.ReactNode, count: number, active: boolean) => (
+    <Link
+      key={key}
+      href={`/leads?search=${key}`}
+      className={cn(
+        "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm whitespace-nowrap",
+        active ? "border-foreground bg-foreground text-background" : "hover:bg-accent",
+      )}
+    >
+      {label}
+      <span className={cn("tabular-nums", active ? "opacity-80" : "text-muted-foreground")}>{count}</span>
+    </Link>
+  );
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>
-          Leady <span className="font-normal text-muted-foreground">({rows.length})</span>
+          {current ? `${current.category}, ${current.city}` : search === "none" ? "Leady bez hledání" : "Všechny leady"}{" "}
+          <span className="font-normal text-muted-foreground">({rows.length})</span>
         </CardTitle>
+        {current ? (
+          <p className="text-sm text-muted-foreground">Hledání z {formatDateTime(current.createdAt)}</p>
+        ) : null}
       </CardHeader>
       <CardContent className="grid gap-4">
+        <nav aria-label="Hledání" className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+          {searches.groups.map((g) =>
+            chip(
+              g.id,
+              <>
+                <span className="font-medium">
+                  {g.category}, {g.city}
+                </span>
+                <span className={search === g.id ? "opacity-80" : "text-muted-foreground"}>
+                  {formatDate(g.createdAt)}
+                </span>
+              </>,
+              g.leadCount,
+              search === g.id,
+            ),
+          )}
+          {searches.withoutSearch ? chip("none", "Bez hledání", searches.withoutSearch, search === "none") : null}
+          {chip("all", "Všechny leady", searches.total, search === "all")}
+        </nav>
         <form className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr_auto]">
+          <input type="hidden" name="search" value={search} />
           <Input name="q" placeholder="Hledat název nebo adresu" defaultValue={filters.q} />
           <NativeSelect name="city" defaultValue={filters.city ?? ""}>
             <option value="">Všechna města</option>
@@ -184,12 +239,15 @@ async function LeadsTable({ searchParams }: Pick<PageProps<"/leads">, "searchPar
                     <Badge variant="outline">{LEAD_STATUS_LABELS[lead.status]}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <form action={goToBuilderFromLead.bind(null, lead.id)}>
-                      <Button type="submit" size="sm">
-                        <Hammer />
-                        Postavit web
-                      </Button>
-                    </form>
+                    <div className="flex items-center justify-end gap-1">
+                      <form action={goToBuilderFromLead.bind(null, lead.id)}>
+                        <Button type="submit" size="sm">
+                          <Hammer />
+                          Postavit web
+                        </Button>
+                      </form>
+                      <DeleteLeadButton leadId={lead.id} name={lead.name} />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

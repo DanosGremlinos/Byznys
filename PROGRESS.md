@@ -567,3 +567,14 @@ schema change approved.
 ### Checks
 - typecheck ✅, lint ✅, tests ✅ (113), `next build` ✅; browser check (local DB): Balíčky (services +
   calculator 1 000 Kč → 490 / 990 / 1 190), Nová nabídka, Nové předplatné – no console errors.
+
+## Úprava 7 — Leady po hledáních + mazání leadů ✅
+
+- Leads page shows the searches as chips above the table ("pizzerie, Brno · 4. 11. 2026 · 5"), plus
+  "Bez hledání" and "Všechny leady". **Default = the newest search**, so new results don't mix with old ones.
+  Filters keep the chosen search. No schema change (`leads.search_job_id` already existed).
+- A business found again by a newer search moves to that search (it belongs to the last search that found it).
+- Delete a lead: trash button in the table and "Smazat lead" on the detail (with confirmation). Photos, reviews
+  and analyses go with it (DB cascade), Blob photos are removed (best effort); a client created from it, emails
+  and Builder projects stay. A later search can find the business again (then it's a new lead).
+- Checks: typecheck ✅, lint ✅, tests ✅ (116; new: delete lead), build ✅, browser check (local DB) ✅.
