@@ -513,3 +513,26 @@ Owner's decisions: yearly = **10 × monthly price ("2 měsíce zdarma")**; schem
 ### Checks
 - typecheck ✅, lint ✅, tests ✅ (113; new: yearly helpers, yearly subscription payment + reminder amount,
   switching to yearly), `next build` ✅.
+
+## Úprava 5 — Obsah balíčků bez cen + odebrání zakázky ✅
+
+### "Obsah balíčků" (formerly package templates / Tarify)
+- Owner's decision: templates carry **only name and contents**, no price. Nav "Tarify" → **"Balíčky"**; the section
+  is "Obsah balíčků". No schema change: the old `monthly_price_halere` column stays but is no longer edited
+  or used (new rows get 0).
+- Prices come only from the calculator (saved packages) or are typed per client:
+  - new subscription without saved packages: name + contents prefilled, price typed;
+  - changing contents of a subscription keeps the client's price;
+  - offer form: optional price field, no template prices;
+  - L3 without calculated packages lists contents only and warns.
+- L2 email no longer names a price ("Možnosti správy a jejich cenu vám pošlu v dalším e-mailu").
+- Contract: `{{priceTerms}}` = "990 Kč měsíčně, nebo 9 900 Kč ročně (2 měsíce zdarma) při platbě na celý rok",
+  or "dle samostatné dohody podle zvoleného balíčku" when no price is known yet.
+
+### Removing a job ("Odebrat zakázku" on the job detail)
+- Asks for confirmation. Refused while the subscription is active or paused (cancel it first).
+- Removes the website record, a cancelled subscription (with history and reminders) and the packages
+  calculated for the job. Client, emails, Builder projects and contracts stay (just unlinked).
+
+### Checks
+- typecheck ✅, lint ✅, tests ✅ (115; new: delete job), `next build` ✅.

@@ -23,6 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getJobDetail } from "@/server/websites/queries";
 import { openWebsiteInBuilder } from "../../builder/actions";
+import { DeleteJobButton } from "./delete-job";
 
 export const metadata: Metadata = { title: "Zakázka" };
 
@@ -99,6 +100,7 @@ async function Job({ params }: Pick<PageProps<"/websites/[id]">, "params">) {
               Poslat e-mail
             </Link>
           </Button>
+          <DeleteJobButton websiteId={website.id} name={website.name} />
         </div>
       </div>
 
