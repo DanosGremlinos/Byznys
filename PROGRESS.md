@@ -459,3 +459,10 @@ Branch `claude/charming-noether-cwusyd` (based on `claude/busy-clarke-49tnmm`). 
 ### Checks
 - `npm run typecheck` ✅, `npm test` ✅ (new: Resend signature — valid, rotated keys, tampered, wrong secret,
   stale, missing headers; case-insensitive headers).
+
+### Gmail „Promoakce“ (2026-11-16)
+- Removed the `List-Unsubscribe` / `List-Unsubscribe-Post` headers: offers are individual 1:1 emails, and the header
+  is Gmail's strongest "newsletter" signal. The opt-out link stays in the body (required for business
+  communication); the one-click endpoint still works for links already sent.
+- HTML version shows the opt-out as a small grey "Odhlásit se" link instead of the long token URL.
+- Sender `webyz <info@webyz.email>`; DMARC record (`p=none`) added by the owner.
