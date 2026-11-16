@@ -79,7 +79,7 @@ export function PaymentForm({
   );
 }
 
-type Tier = { id: string; name: string; monthlyPriceHalere: number; features: string[] };
+type Tier = { id: string; name: string; features: string[] };
 type Current = {
   tierId: string | null;
   name: string;
@@ -107,19 +107,16 @@ export function PackageForm({
   const [period, setPeriod] = useState<BillingPeriod>(current.billingPeriod);
   const tier = tiers.find((t) => t.id === tierId);
   const isCurrent = tierId === (current.tierId ?? "");
-  // When only the payment period changes, the current price is converted with the yearly rule
-  // ("2 měsíce zdarma"); a different template prefills its own price for the chosen period.
+  // The price stays the client's; when only the payment period changes it is converted with the yearly
+  // rule ("2 měsíce zdarma"). Choosing different package contents prefills name and contents only.
   const currentMonthly =
     current.billingPeriod === "yearly" ? monthlyFromYearly(current.priceHalere) : current.priceHalere;
+  const priceHalere =
+    period === current.billingPeriod ? current.priceHalere : priceForPeriod(currentMonthly, period);
   const values =
     isCurrent || !tier
-      ? {
-          name: current.name,
-          features: current.features,
-          priceHalere:
-            period === current.billingPeriod ? current.priceHalere : priceForPeriod(currentMonthly, period),
-        }
-      : { name: tier.name, priceHalere: priceForPeriod(tier.monthlyPriceHalere, period), features: tier.features };
+      ? { name: current.name, features: current.features, priceHalere }
+      : { name: tier.name, features: tier.features, priceHalere };
   return (
     <form action={action} className="grid gap-3">
       <div className="grid gap-1.5">
@@ -139,14 +136,14 @@ export function PackageForm({
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="grid gap-1.5">
-          <Label htmlFor="tierId">Šablona</Label>
+          <Label htmlFor="tierId">Obsah balíčku</Label>
           <NativeSelect id="tierId" name="tierId" value={tierId} onChange={(e) => setTierId(e.target.value)}>
             {tiers.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
             ))}
-            <option value="">Vlastní</option>
+            <option value="">Vlastní obsah</option>
           </NativeSelect>
         </div>
         <div className="grid gap-1.5">

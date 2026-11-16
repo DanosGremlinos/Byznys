@@ -84,15 +84,15 @@ export function issuesText(factors: ScoreFactorResult[] | null | undefined): str
   return lines.join("\n");
 }
 
-export function tierComparisonText(
-  tiers: { name: string; monthlyPriceHalere: number; features: string[] }[],
-): string {
-  return tiers
-    .map(
-      (t) =>
-        `${t.name} – ${formatCzk(t.monthlyPriceHalere).replace(/\s/g, " ")} měsíčně, nebo ${yearlyOfferText(t.monthlyPriceHalere)}\n${t.features.map((f) => `  • ${f}`).join("\n")}`,
-    )
-    .join("\n\n");
+/** Package contents without prices (used when no packages were calculated for the client). */
+export function tierComparisonText(tiers: { name: string; features: string[] }[]): string {
+  return tiers.map((t) => `${t.name}\n${t.features.map((f) => `  • ${f}`).join("\n")}`).join("\n\n");
+}
+
+/** Price wording for the contract: both payment options, or "by agreement" when no price is known yet. */
+export function contractPriceTerms(monthlyHalere: number | null): string {
+  if (monthlyHalere === null) return "dle samostatné dohody podle zvoleného balíčku";
+  return `${formatCzk(monthlyHalere).replace(/\s/g, " ")} měsíčně, nebo ${yearlyOfferText(monthlyHalere)} při platbě na celý rok`;
 }
 
 export function senderName(): string {
@@ -111,7 +111,7 @@ export type OfferInput = {
   screenshotUrl?: string | null;
   tierId?: string | null;
   priceHalere?: number | null;
-  /** L3: offer the three packages calculated for this client (Tarify → kalkulačka). */
+  /** L3: offer the three packages calculated for this client (Balíčky → kalkulačka). */
   packageOfferId?: string | null;
   useAi: boolean;
 };
@@ -164,7 +164,10 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
   });
   const tier = tiers.find((t) => t.id === input.tierId) ?? tiers[1] ?? tiers[0];
   const packageName = recommended?.name ?? tier?.name ?? null;
-  const priceHalere = recommended?.priceHalere ?? input.priceHalere ?? tier?.monthlyPriceHalere ?? null;
+  // Prices come from the calculator (saved packages) or are typed for this client; package contents carry none.
+  const priceHalere = recommended?.priceHalere ?? input.priceHalere ?? null;
+  if (input.level === "offer_l3" && !offer)
+    warnings.push("Pro klienta nejsou spočítané balíčky – e-mail L3 neobsahuje ceny. Spočítejte je v kalkulačce.");
   const businessName = client?.businessName ?? lead!.name;
   const previewUrl = input.previewUrl || website?.previewUrl || null;
 
@@ -313,6 +316,7 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
         domain: website?.domain ?? null,
         monthlyPrice: vars.monthlyPrice,
         yearlyPrice: vars.yearlyPrice,
+        priceTerms: contractPriceTerms(priceHalere),
         packageName,
         tierName: packageName,
         city: process.env.PROVIDER_CITY ?? client.city,

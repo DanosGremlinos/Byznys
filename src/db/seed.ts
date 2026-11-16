@@ -725,7 +725,7 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
 Poskytovatel vytvoří pro objednatele webové stránky na doméně {{domain}} a zajistí jejich provoz, hosting a údržbu.
 
 ## 2. Cena a platební podmínky
-Předplatné (balíček {{packageName}}) činí {{monthlyPrice}} měsíčně, nebo {{yearlyPrice}} při platbě na celý rok. Platba je splatná vždy na začátku placeného období (měsíce, resp. roku).
+Předplatné (balíček {{packageName}}) činí {{priceTerms}}. Platba je splatná vždy na začátku placeného období (měsíce, resp. roku).
 
 ## 3. Doba trvání
 Smlouva se uzavírá na dobu neurčitou s výpovědní lhůtou 1 měsíc.

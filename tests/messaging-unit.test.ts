@@ -14,7 +14,7 @@ import {
   withUnsubscribe,
 } from "@/server/email/render";
 import { DEFAULT_EMAIL_TEMPLATES } from "@/config/email-templates";
-import { issuesText, tierComparisonText } from "@/server/messaging/compose";
+import { contractPriceTerms, issuesText, tierComparisonText } from "@/server/messaging/compose";
 
 describe("templates", () => {
   it("fills known variables and keeps unknown ones detectable", () => {
@@ -140,9 +140,9 @@ describe("offer content", () => {
     ]);
   });
   it("lists the package templates", () => {
-    expect(tierComparisonText([{ name: "Základ", monthlyPriceHalere: 49000, features: ["Hosting"] }])).toBe(
-      "Základ – 490 Kč měsíčně, nebo 4 900 Kč ročně (2 měsíce zdarma)\n  • Hosting",
-    );
+    expect(tierComparisonText([{ name: "Základ", features: ["Hosting"] }])).toBe("Základ\n  • Hosting");
+    expect(contractPriceTerms(99000)).toBe("990 Kč měsíčně, nebo 9 900 Kč ročně (2 měsíce zdarma) při platbě na celý rok");
+    expect(contractPriceTerms(null)).toBe("dle samostatné dohody podle zvoleného balíčku");
   });
 });
 

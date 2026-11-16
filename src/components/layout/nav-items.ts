@@ -43,7 +43,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Nastavení",
-    items: [{ href: "/settings/tiers", label: "Tarify", icon: Settings }],
+    items: [{ href: "/settings/tiers", label: "Balíčky", icon: Settings }],
   },
 ];
 

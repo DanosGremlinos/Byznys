@@ -19,9 +19,9 @@ const VARIABLES: [string, string][] = [
   ["{{contactGreeting}}", "oslovení (doplní AI, jinak prázdné)"],
   ["{{issues}}", "konkrétní problémy současného webu (odrážky ze skóre)"],
   ["{{previewUrl}}", "odkaz na náhled návrhu"],
-  ["{{packageName}} / {{monthlyPrice}}", "navržený balíček a měsíční cena"],
+  ["{{packageName}} / {{monthlyPrice}}", "navržený balíček a měsíční cena (z kalkulačky nebo zadaná ručně)"],
   ["{{yearlyPrice}}", "cena při roční platbě, např. „9 900 Kč ročně (2 měsíce zdarma)“"],
-  ["{{tierComparison}}", "srovnání balíčků (z kalkulačky v Tarifech, jinak šablony tarifů)"],
+  ["{{tierComparison}}", "srovnání balíčků s cenami z kalkulačky (bez spočítaných balíčků jen jejich obsah)"],
   ["{{websiteDomain}}", "doména webu klienta"],
   ["{{senderName}}", "vaše jméno z EMAIL_FROM"],
   ["{{unsubscribeUrl}}", "odkaz pro odhlášení – doplní se vždy (když chybí, přidá se patička)"],
@@ -29,7 +29,7 @@ const VARIABLES: [string, string][] = [
 ];
 
 const CONTRACT_VARIABLES =
-  "{{providerName}}, {{providerIco}}, {{providerAddress}}, {{clientName}}, {{clientIco}}, {{clientAddress}}, {{domain}}, {{packageName}}, {{monthlyPrice}}, {{yearlyPrice}}, {{city}}, {{date}}";
+  "{{providerName}}, {{providerIco}}, {{providerAddress}}, {{clientName}}, {{clientIco}}, {{clientAddress}}, {{domain}}, {{packageName}}, {{priceTerms}} (obě varianty platby, nebo „dle dohody“), {{monthlyPrice}}, {{yearlyPrice}}, {{city}}, {{date}}";
 
 export default function TemplatesPage() {
   return (

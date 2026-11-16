@@ -88,7 +88,7 @@ export async function markOfferChosen(db: Database, offerId: string, subscriptio
     .where(eq(packageOffers.id, offerId));
 }
 
-/** All saved offers, newest first, with client and job names (Tarify page, job detail). */
+/** All saved offers, newest first, with client and job names (Balíčky page, job detail). */
 export async function listPackageOffers(db: Database, filter: { clientId?: string; websiteId?: string } = {}) {
   const rows = await db.query.packageOffers.findMany({
     where: filter.websiteId

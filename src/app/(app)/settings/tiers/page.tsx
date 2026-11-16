@@ -7,21 +7,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { db } from "@/db";
 import { requireAdmin } from "@/lib/auth-guard";
-import { yearlyPrice } from "@/lib/billing-period";
-import { formatCzk } from "@/lib/format";
 import { listTiers } from "@/server/billing/queries";
 import { calculatorOptions, listPackageOffers } from "@/server/billing/package-offers";
 import { PackageCalculator } from "./package-calculator";
 import { TierForm } from "./tier-form";
 
-export const metadata: Metadata = { title: "Tarify" };
+export const metadata: Metadata = { title: "Balíčky" };
 
 export default function TiersPage({ searchParams }: PageProps<"/settings/tiers">) {
   return (
     <>
       <PageHeader
-        title="Tarify"
-        description="Kalkulačka složí z rozpočtu klienta 3 balíčky tak, aby se vyplatilo vzít ten největší. Obsah balíčků určují šablony dole."
+        title="Balíčky"
+        description="Kalkulačka složí z rozpočtu klienta 3 balíčky tak, aby se vyplatilo vzít ten největší. Co který balíček obsahuje, nastavíte dole v Obsahu balíčků."
       />
       <Card>
         <CardHeader>
@@ -47,18 +45,18 @@ export default function TiersPage({ searchParams }: PageProps<"/settings/tiers">
           </Suspense>
         </CardContent>
       </Card>
-      <h2 className="mt-2 text-lg font-semibold">Šablony balíčků</h2>
+      <h2 className="mt-2 text-lg font-semibold">Obsah balíčků</h2>
       <p className="-mt-2 text-sm text-muted-foreground">
-        Kalkulačka bere první 3 aktivní šablony podle pořadí (Základ → Standard → Premium) a jejich funkce. Aby
-        návnada fungovala, má Premium obsahovat vše ze Standardu a navíc 2–3 viditelné věci. Výchozí cena se
-        použije jen při zakládání předplatného bez kalkulačky.
+        Kalkulačka bere první 3 aktivní balíčky podle pořadí (Základ → Standard → Premium) a jejich obsah; ceny
+        spočítá z rozpočtu klienta. Aby návnada fungovala, má Premium obsahovat vše ze Standardu a navíc 2–3
+        viditelné věci.
       </p>
       <Suspense fallback={<Skeleton className="h-96 w-full" />}>
         <Tiers />
       </Suspense>
       <Card>
         <CardHeader>
-          <CardTitle>Nová šablona balíčku</CardTitle>
+          <CardTitle>Nový balíček</CardTitle>
         </CardHeader>
         <CardContent>
           <TierForm tier={null} />
@@ -98,9 +96,6 @@ async function Tiers() {
         <Card key={t.id}>
           <CardHeader className="flex flex-row items-center gap-2">
             <CardTitle>{t.name}</CardTitle>
-            <span className="text-sm text-muted-foreground">
-              {formatCzk(t.monthlyPriceHalere)} / měsíc · ročně {formatCzk(yearlyPrice(t.monthlyPriceHalere))}
-            </span>
             {!t.isActive ? <Badge variant="outline">neaktivní</Badge> : null}
           </CardHeader>
           <CardContent>

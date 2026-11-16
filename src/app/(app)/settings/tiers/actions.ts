@@ -12,11 +12,6 @@ export type TierState = { ok?: string; error?: string };
 const schema = z.object({
   name: z.string().trim().min(1, "Zadejte název").max(100),
   description: z.string().trim().max(500).optional(),
-  price: z
-    .string()
-    .trim()
-    .transform((v) => Number(v.replace(/\s/g, "").replace(",", ".")))
-    .refine((n) => Number.isFinite(n) && n > 0, "Zadejte kladnou cenu v Kč"),
   features: z.string().optional(),
   sortOrder: z.coerce.number().int().min(0).max(999),
   isActive: z.string().optional(),
@@ -31,7 +26,6 @@ export async function saveTier(id: string | null, _prev: TierState, formData: Fo
     await upsertTier(db, id, {
       name: d.name,
       description: d.description || null,
-      monthlyPriceHalere: Math.round(d.price * 100),
       features: (d.features ?? "")
         .split("\n")
         .map((s) => s.trim())
@@ -43,7 +37,7 @@ export async function saveTier(id: string | null, _prev: TierState, formData: Fo
     return { error: "Uložení selhalo (název musí být jedinečný)." };
   }
   refresh();
-  return { ok: id ? "Uloženo." : "Šablona balíčku přidána." };
+  return { ok: id ? "Uloženo." : "Balíček přidán." };
 }
 
 export type OfferState = { ok?: string; error?: string; offerId?: string; clientId?: string };

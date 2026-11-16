@@ -141,7 +141,6 @@ async function Detail({ params }: Pick<PageProps<"/subscriptions/[id]">, "params
               tiers={tiers.map((t) => ({
                 id: t.id,
                 name: t.name,
-                monthlyPriceHalere: t.monthlyPriceHalere,
                 features: t.features,
               }))}
               disabled={cancelled}

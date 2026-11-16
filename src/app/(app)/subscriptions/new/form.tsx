@@ -21,7 +21,7 @@ import { createSubscriptionAction, type FormState } from "../actions";
 type Props = {
   clients: { id: string; name: string }[];
   websites: { id: string; clientId: string; name: string; domain: string | null }[];
-  tiers: { id: string; name: string; monthlyPriceHalere: number; features: string[] }[];
+  tiers: { id: string; name: string; features: string[] }[];
   initialClientId: string;
   initialWebsiteId: string;
   /** Package chosen from saved calculator packages (prefills name, price, features). */
@@ -57,13 +57,12 @@ export function NewSubscriptionForm({
   // Until the template is changed by hand, the package from the saved offer is used.
   const [useOffer, setUseOffer] = useState(fromOffer !== null);
   const template = tiers.find((t) => t.id === tierId);
-  const tier =
-    useOffer && fromOffer
-      ? { name: fromOffer.name, monthlyPriceHalere: fromOffer.priceHalere, features: fromOffer.features }
-      : template;
+  const tier = useOffer && fromOffer ? { name: fromOffer.name, features: fromOffer.features } : template;
+  // Price comes only from saved calculator packages; otherwise it is typed for this client.
+  const offerMonthly = useOffer && fromOffer ? fromOffer.priceHalere : null;
   const clientName = clients.find((c) => c.id === clientId)?.name ?? "";
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
-  const price = tier ? priceForPeriod(tier.monthlyPriceHalere, period) : null;
+  const price = offerMonthly !== null ? priceForPeriod(offerMonthly, period) : null;
 
   return (
     <form action={action} className="grid max-w-3xl gap-5">
@@ -154,7 +153,7 @@ export function NewSubscriptionForm({
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="grid gap-1.5">
-          <Label htmlFor="tierId">Šablona balíčku</Label>
+          <Label htmlFor="tierId">Obsah balíčku</Label>
           <NativeSelect
             id="tierId"
             name="tierId"
@@ -169,7 +168,7 @@ export function NewSubscriptionForm({
                 {t.name}
               </option>
             ))}
-            <option value="">Vlastní (bez šablony)</option>
+            <option value="">Vlastní obsah</option>
           </NativeSelect>
         </div>
         <div className="grid gap-1.5">
@@ -186,10 +185,12 @@ export function NewSubscriptionForm({
             key={`p-${tierId}-${useOffer}-${period}`}
             required
           />
-          {period === "yearly" && tier ? (
+          {period === "yearly" && offerMonthly !== null ? (
             <p className="text-xs text-muted-foreground">
-              Měsíčně by to bylo {formatCzk(tier.monthlyPriceHalere * 12)} za rok.
+              Měsíčně by to bylo {formatCzk(offerMonthly * 12)} za rok.
             </p>
+          ) : period === "yearly" ? (
+            <p className="text-xs text-muted-foreground">Cena za celý rok ({yearlyBonusText()}).</p>
           ) : null}
         </div>
       </div>

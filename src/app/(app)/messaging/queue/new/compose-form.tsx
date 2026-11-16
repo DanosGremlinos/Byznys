@@ -13,7 +13,7 @@ type Option = { id: string; name: string; email: string | null; blacklisted: boo
 type Props = {
   leads: (Option & { status: string; score: number | null; city: string | null })[];
   clients: (Option & { previewUrl: string | null })[];
-  tiers: { id: string; name: string; monthlyPriceHalere: number }[];
+  tiers: { id: string; name: string }[];
   packageOffers: { id: string; clientId: string; label: string }[];
   initialOfferId: string;
   initialRecipient: string;
@@ -34,7 +34,7 @@ const LEVELS = [
   {
     key: "offer_budget",
     title: "Dotaz na rozpočet",
-    text: "Zeptá se klienta, kolik je ochoten měsíčně platit za správu. Z odpovědi pak kalkulačka v Tarifech složí 3 balíčky.",
+    text: "Zeptá se klienta, kolik je ochoten měsíčně platit za správu. Z odpovědi pak kalkulačka v Balíčcích složí 3 balíčky.",
   },
   {
     key: "offer_l3",
@@ -59,7 +59,6 @@ export function ComposeForm({
   const [offerId, setOfferId] = useState(initialOfferId);
   const effectiveOffer = clientOffers.some((o) => o.id === offerId) ? offerId : (clientOffers[0]?.id ?? "");
   const [tierId, setTierId] = useState(tiers[1]?.id ?? tiers[0]?.id ?? "");
-  const tier = tiers.find((t) => t.id === tierId);
   const client = recipient.startsWith("client:")
     ? clients.find((c) => `client:${c.id}` === recipient)
     : undefined;
@@ -175,7 +174,7 @@ export function ComposeForm({
       {level === "offer_l2" || (level === "offer_l3" && !effectiveOffer) ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid grid-cols-1 gap-1.5">
-            <Label htmlFor="tierId">Navržený balíček (šablona)</Label>
+            <Label htmlFor="tierId">Navržený balíček (obsah)</Label>
             <NativeSelect
               id="tierId"
               name="tierId"
@@ -184,20 +183,14 @@ export function ComposeForm({
             >
               {tiers.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.name} – {(t.monthlyPriceHalere / 100).toLocaleString("cs-CZ")} Kč
+                  {t.name}
                 </option>
               ))}
             </NativeSelect>
           </div>
           <div className="grid grid-cols-1 gap-1.5">
-            <Label htmlFor="price">Měsíční cena pro tohoto klienta (Kč)</Label>
-            <Input
-              id="price"
-              name="price"
-              inputMode="decimal"
-              placeholder={tier ? String(tier.monthlyPriceHalere / 100) : ""}
-              key={tierId}
-            />
+            <Label htmlFor="price">Měsíční cena pro tohoto klienta (Kč, nepovinné)</Label>
+            <Input id="price" name="price" inputMode="decimal" placeholder="např. 990" />
           </div>
         </div>
       ) : null}

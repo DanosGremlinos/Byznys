@@ -65,8 +65,8 @@ export function WebsiteTiles({
             </option>
           ))}
         </NativeSelect>
-        <NativeSelect value={tier} onChange={(e) => setTier(e.target.value)} aria-label="Tarif">
-          <option value="">Všechny tarify</option>
+        <NativeSelect value={tier} onChange={(e) => setTier(e.target.value)} aria-label="Balíček">
+          <option value="">Všechny balíčky</option>
           {tiers.map((t) => (
             <option key={t}>{t}</option>
           ))}
@@ -126,7 +126,7 @@ export function WebsiteTiles({
                 <div className="rounded-md bg-muted/60 p-2 text-sm">
                   {t.subscription ? (
                     <dl className="grid grid-cols-2 gap-x-2 gap-y-0.5">
-                      <dt className="text-muted-foreground">Tarif</dt>
+                      <dt className="text-muted-foreground">Balíček</dt>
                       <dd className="text-right">{t.subscription.name}</dd>
                       <dt className="text-muted-foreground">Cena</dt>
                       <dd className="text-right tabular-nums">

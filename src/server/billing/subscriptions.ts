@@ -219,7 +219,8 @@ export async function setWebsiteSuspended(db: Database, websiteId: string, suspe
 }
 
 // ---------------------------------------------------------------------------
-// Package templates (tiers)
+// Package contents ("Obsah balíčků", table subscription_tiers). Prices come from the calculator or are
+// typed per client; the legacy monthly_price_halere column is no longer edited (new rows get 0).
 // ---------------------------------------------------------------------------
 
 export async function upsertTier(
@@ -228,14 +229,13 @@ export async function upsertTier(
   input: {
     name: string;
     description: string | null;
-    monthlyPriceHalere: number;
     features: string[];
     isActive: boolean;
     sortOrder: number;
   },
 ) {
   if (id) await db.update(subscriptionTiers).set(input).where(eq(subscriptionTiers.id, id));
-  else await db.insert(subscriptionTiers).values(input);
+  else await db.insert(subscriptionTiers).values({ ...input, monthlyPriceHalere: 0 });
 }
 
 export function defaultPaidUntil(startedOn: string): string {
