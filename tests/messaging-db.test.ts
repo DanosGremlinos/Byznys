@@ -70,7 +70,7 @@ describe.skipIf(!url)("messaging (DB)", () => {
     expect(provider.sent).toHaveLength(1);
     const sent = provider.sent[0];
     expect(sent.text).toMatch(/https:\/\/app\.test\/unsubscribe\/[\w-]+\.[\w-]+/);
-    expect(sent.headers?.["List-Unsubscribe"]).toMatch(/^<https:\/\/app\.test\/unsubscribe\//);
+    expect(sent.headers?.["List-Unsubscribe"]).toBeUndefined();
     expect(sent.messageId).toMatch(/^<[0-9a-f-]+@weby\.test>$/);
     const again = await sendApprovedEmail(db, provider, emailId);
     expect(again.ok).toBe(false);

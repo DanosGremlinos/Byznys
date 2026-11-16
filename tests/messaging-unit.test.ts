@@ -57,6 +57,16 @@ describe("unsubscribe", () => {
     expect(appended).toContain("Odhlásit se můžete zde");
   });
 
+  it("shows the opt-out link as short quiet text in HTML", () => {
+    const html = textToHtml(
+      "Nabídka\n\nNechcete dostávat další zprávy? Odhlásit se můžete zde: https://app.cz/unsubscribe/abc.def",
+    );
+    expect(html).toContain('Nechcete dostávat další zprávy? <a href="https://app.cz/unsubscribe/abc.def"');
+    expect(html).toContain(">Odhlásit se</a>");
+    expect(html).not.toContain(">https://app.cz/unsubscribe/");
+    expect(html).toContain("font-size:12px");
+  });
+
   it("escapes HTML and links URLs", () => {
     const html = textToHtml("Ahoj <b>\n\nhttps://x.cz/a?b=1", { imageUrl: "https://img/x.png" });
     expect(html).toContain("Ahoj &lt;b&gt;");

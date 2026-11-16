@@ -108,10 +108,8 @@ export async function sendApprovedEmail(
       messageId,
       inReplyTo: claimed.inReplyTo ?? references.at(-1) ?? null,
       references,
-      headers: {
-        "List-Unsubscribe": `<${unsubscribeUrl}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-      },
+      // No List-Unsubscribe header: these are individual 1:1 emails, and that header makes Gmail file
+      // them under Promotions. The opt-out link stays in the body (required for business communication).
       attachments: files,
     });
 

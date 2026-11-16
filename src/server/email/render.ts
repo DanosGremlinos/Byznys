@@ -59,6 +59,10 @@ export function withUnsubscribe(body: string, unsubscribeUrl: string): string {
   return `${body.trimEnd()}\n\n---\nNechcete dostávat další zprávy? Odhlásit se můžete zde: ${unsubscribeUrl}\n`;
 }
 
+/** "Odhlásit se můžete zde: <url>" / "Odhlásit se: <url>" / bare unsubscribe URL (already HTML-escaped). */
+const UNSUBSCRIBE_IN_TEXT =
+  /(?:Odhlásit se(?: můžete)?(?: zde)?:\s*)?(https?:\/\/[^\s<]+\/unsubscribe\/[^\s<]+)/i;
+
 const escapeHtml = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -67,13 +71,23 @@ export function textToHtml(text: string, opts: { imageUrl?: string | null } = {}
   const paragraphs = text
     .trim()
     .split(/\n{2,}/)
-    .map((p) =>
-      p === "---"
-        ? '<hr style="border:none;border-top:1px solid #ddd;margin:24px 0">'
-        : `<p style="margin:0 0 16px">${escapeHtml(p)
-            .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#1d4ed8">$1</a>')
-            .replace(/\n/g, "<br>")}</p>`,
-    )
+    .map((p) => {
+      if (p === "---") return '<hr style="border:none;border-top:1px solid #eee;margin:24px 0">';
+      // The opt-out link is shown as short, quiet text instead of a long token URL.
+      let unsubscribe: string | null = null;
+      const body = escapeHtml(p)
+        .replace(UNSUBSCRIBE_IN_TEXT, (_m, url: string) => {
+          unsubscribe = url;
+          return "\u0000";
+        })
+        .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" style="color:#1d4ed8">$1</a>')
+        .replace(/\n/g, "<br>");
+      if (!unsubscribe) return `<p style="margin:0 0 16px">${body}</p>`;
+      return `<p style="margin:0 0 16px;font-size:12px;color:#888">${body.replace(
+        "\u0000",
+        `<a href="${unsubscribe}" style="color:#888">Odhlásit se</a>`,
+      )}</p>`;
+    })
     .join("\n");
   const image = opts.imageUrl
     ? `<p style="margin:0 0 16px"><img src="${escapeHtml(opts.imageUrl)}" alt="Náhled nového webu" style="max-width:100%;border:1px solid #eee;border-radius:8px"></p>`
