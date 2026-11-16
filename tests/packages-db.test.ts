@@ -160,9 +160,9 @@ describe.skipIf(!url)("packages and jobs (DB)", () => {
   it("calculates from the services in the database", async () => {
     const r = await calculateForBudget(db, 100_000);
     expect(r.packages.map((p) => p.priceHalere / 100)).toEqual([490, 990, 1190]);
-    await db.update(services).set({ isActive: false }).where(eq(services.name, "Rezervační systém"));
+    await db.update(services).set({ isActive: false }).where(eq(services.name, "Správa profilu Firmy na Googlu"));
     const without = await calculateForBudget(db, 100_000);
-    expect(without.packages[2].features).not.toContain("Rezervační systém");
-    await db.update(services).set({ isActive: true }).where(eq(services.name, "Rezervační systém"));
+    expect(without.packages[2].features).not.toContain("Správa profilu Firmy na Googlu");
+    await db.update(services).set({ isActive: true }).where(eq(services.name, "Správa profilu Firmy na Googlu"));
   });
 });

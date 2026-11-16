@@ -80,41 +80,68 @@ export function calculatePackages(
   const required = services.filter((s) => s.required);
   const optional = services.filter((s) => !s.required);
 
+  if (optional.length < 2)
+    throw new Error(
+      "Pro 3 různé balíčky jsou potřeba aspoň 2 nabízené služby, které nejsou povinné – doplňte seznam služeb.",
+    );
+  const byPrice = (a: ServiceItem, b: ServiceItem) =>
+    a.priceHalere - b.priceHalere || order.get(a.id)! - order.get(b.id)!;
+
   const premiumSet = fill(required, optional, budget * cfg.premiumOverBudget);
-  const premiumOptional = premiumSet.filter((s) => !s.required);
-  const basicSet = fill(required, premiumOptional, budget * cfg.basicBudgetRatio);
-  const basicIds = new Set(basicSet.map((s) => s.id));
-  // Decoy: Premium without its cheapest extras (extras = what Základ doesn't have). Keep at least one extra.
-  const extras = premiumOptional.filter((s) => !basicIds.has(s.id));
-  const removeCount = Math.min(cfg.decoyRemoveCount, Math.max(0, extras.length - 1));
+  const inPremium = (x: ServiceItem) => premiumSet.some((p) => p.id === x.id);
+  /** Adds the cheapest service not yet in Premium (goes over budget if needed). */
+  const growPremium = () => {
+    const next = optional.filter((x) => !inPremium(x)).sort(byPrice)[0];
+    if (next) premiumSet.push(next);
+    return Boolean(next);
+  };
+  let basicSet = fill(
+    required,
+    premiumSet.filter((x) => !x.required),
+    budget * cfg.basicBudgetRatio,
+  );
+  const extrasOf = () => premiumSet.filter((x) => !x.required && !basicSet.some((b) => b.id === x.id));
+  // Three DIFFERENT packages need at least 2 extras in Premium over Základ (one stays in Standard, one is
+  // what Standard lacks). Add the cheapest missing services to Premium; as a last resort strip Základ.
+  while (extrasOf().length < 2 && growPremium());
+  if (extrasOf().length < 2) basicSet = [...required];
+  const extras = extrasOf();
+  const removeCount = Math.min(cfg.decoyRemoveCount, extras.length - 1);
   const removed = new Set(
     [...extras]
-      .sort((a, b) => a.priceHalere - b.priceHalere || order.get(b.id)! - order.get(a.id)!)
+      .sort((a, b) => byPrice(a, b) || order.get(b.id)! - order.get(a.id)!)
       .slice(0, removeCount)
-      .map((s) => s.id),
+      .map((x) => x.id),
   );
-  const standardSet = premiumSet.filter((s) => !removed.has(s.id));
+  const standardSet = premiumSet.filter((x) => !removed.has(x.id));
 
   const basic = charmNearest(kcOf(basicSet));
   let standard = charmNearest(kcOf(standardSet));
   let premium = charmNearest(kcOf(premiumSet));
-  // Rounding must never make a bigger package cheaper or equal.
+  // Rounding to …90 may make a bigger package cost the same: then Premium gets another service rather than
+  // a bare price bump, so a higher price always comes with more content.
+  while (premium <= standard && growPremium()) premium = charmNearest(kcOf(premiumSet));
   if (standard <= basic) standard = basic + 100;
   if (premium <= standard) premium = standard + 100;
 
   if (kcOf(required) > budget * cfg.premiumOverBudget)
-    warnings.push("Povinné služby samy stojí víc než rozpočet klienta – všechny balíčky budou nad jeho představou.");
+    warnings.push(
+      "Povinné služby samy stojí víc než rozpočet klienta – všechny balíčky budou nad jeho představou.",
+    );
   if (premiumSet.length === services.length && kcOf(premiumSet) < budget)
     warnings.push("Do rozpočtu se vejdou všechny služby – Premium obsahuje vše a je levnější než rozpočet.");
-  if (extras.length < 2)
+  if (kcOf(premiumSet) > budget * cfg.premiumOverBudget && kcOf(required) <= budget * cfg.premiumOverBudget)
     warnings.push(
-      "Premium se od ostatních balíčků liší málo – přidejte další služby nebo upravte ceny, aby návnada fungovala.",
+      "Aby se balíčky lišily, je Premium víc než 15 % nad rozpočtem – zvažte nižší ceny služeb pro malé rozpočty.",
     );
   if (services.some((s) => s.priceHalere <= 0))
-    warnings.push("Některé služby nemají cenu – doplňte ji v seznamu služeb, jinak budou balíčky příliš levné.");
+    warnings.push(
+      "Některé služby nemají cenu – doplňte ji v seznamu služeb, jinak budou balíčky příliš levné.",
+    );
   if (budget < cfg.lowBudgetKc)
     warnings.push("Rozpočet je velmi nízký – balíčky můžou vyjít nad představou klienta.");
-  if (budget > cfg.highBudgetKc) warnings.push("Rozpočet je neobvykle vysoký – zkontrolujte částku z odpovědi.");
+  if (budget > cfg.highBudgetKc)
+    warnings.push("Rozpočet je neobvykle vysoký – zkontrolujte částku z odpovědi.");
 
   const pkg = (i: 0 | 1 | 2, items: ServiceItem[], kc: number): OfferedPackage => ({
     tierId: null,
@@ -153,7 +180,9 @@ export function packageComparisonText(packages: OfferedPackage[]): string {
       if (p.recommended && prev && p.priceHalere > prev.priceHalere) {
         const extras = missingFeatures(p.features, prev.features);
         if (extras.length)
-          lines.push(`  → oproti balíčku ${prev.name} jen o ${kc(p.priceHalere - prev.priceHalere)} víc a navíc: ${extras.join(", ")}`);
+          lines.push(
+            `  → oproti balíčku ${prev.name} jen o ${kc(p.priceHalere - prev.priceHalere)} víc a navíc: ${extras.join(", ")}`,
+          );
       }
       return [head, ...lines].join("\n");
     })

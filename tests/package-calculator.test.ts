@@ -38,18 +38,21 @@ describe("calculatePackages from services", () => {
     const [basic, standard, premium] = r.packages;
     // Základ: required services + what fits into half of the budget.
     expect(basic.features).toEqual([
-      "Hosting a doména",
+      "Hosting webu",
+      "Doména .cz (každoroční prodloužení)",
       "SSL certifikát a zabezpečení",
-      "Zálohy webu",
-      "Drobné úpravy obsahu (2× měsíčně)",
+      "Pravidelné zálohy webu",
+      "Technická údržba a aktualizace",
+      "Kontaktní formulář s ochranou proti spamu",
+      "Recenze z Googlu přímo na webu",
     ]);
     // Standard = Premium without its two cheapest extras.
     expect(premium.features.filter((f) => !standard.features.includes(f))).toEqual([
-      "Kontaktní formulář",
-      "Měsíční report návštěvnosti",
+      "Základní SEO (nastavení pro vyhledávače)",
+      "Monitoring dostupnosti webu 24/7",
     ]);
-    expect(premium.features).toContain("Rezervační systém");
-    expect(premium.features).not.toContain("Vícejazyčná verze");
+    expect(premium.features).toContain("Správa profilu Firmy na Googlu");
+    expect(premium.features).not.toContain("Vícejazyčná verze (angličtina)");
     expect(r.packages.map((p) => [p.name, p.recommended])).toEqual([
       ["Základ", false],
       ["Standard", false],
@@ -78,11 +81,27 @@ describe("calculatePackages from services", () => {
     }
   });
 
+  it("never offers two packages with the same contents (any budget)", () => {
+    const key = (f: string[]) => [...f].sort().join("|");
+    for (let budget = 100; budget <= 5000; budget += 10) {
+      const [basic, standard, premium] = calc(budget).packages;
+      expect(key(basic.features), `Základ = Standard @ ${budget}`).not.toBe(key(standard.features));
+      expect(key(standard.features), `Standard = Premium @ ${budget}`).not.toBe(key(premium.features));
+      expect(basic.priceHalere < standard.priceHalere && standard.priceHalere < premium.priceHalere).toBe(true);
+    }
+  });
+
+  it("needs at least two optional services", () => {
+    const onlyRequired = services.filter((s) => s.required).concat(services.filter((s) => !s.required).slice(0, 1));
+    expect(() => calc(1000, onlyRequired)).toThrow(/aspoň 2 nabízené služby/);
+  });
+
   it("warns when everything fits or prices are missing", () => {
     expect(calc(5000).warnings.join(" ")).toMatch(/vejdou všechny služby/);
     const free = services.map((s, i) => (i === 4 ? { ...s, priceHalere: 0 } : s));
     expect(calc(1000, free).warnings.join(" ")).toMatch(/nemají cenu/);
     expect(calc(200).warnings.join(" ")).toMatch(/Povinné služby/);
+    expect(calc(500).warnings.join(" ")).toMatch(/víc než 15 % nad rozpočtem/);
   });
 
   it("is deterministic and validates input", () => {
@@ -97,7 +116,7 @@ describe("texts", () => {
 
   it("explains the decoy", () => {
     expect(decoyExplanation(packages)).toBe(
-      "Standard je jen o 200 Kč levnější než Premium, ale chybí mu: Kontaktní formulář, Měsíční report návštěvnosti.",
+      "Standard je jen o 200 Kč levnější než Premium, ale chybí mu: Základní SEO (nastavení pro vyhledávače), Monitoring dostupnosti webu 24/7.",
     );
   });
 
@@ -105,6 +124,6 @@ describe("texts", () => {
     const text = packageComparisonText(packages);
     expect(text).toContain("Základ – 490 Kč měsíčně, nebo 4 900 Kč ročně (2 měsíce zdarma)");
     expect(text).toContain("★ Premium – 1 190 Kč měsíčně, nebo 11 900 Kč ročně (2 měsíce zdarma) – nejoblíbenější");
-    expect(text).toContain("oproti balíčku Standard jen o 200 Kč víc a navíc: Kontaktní formulář");
+    expect(text).toContain("oproti balíčku Standard jen o 200 Kč víc a navíc: Základní SEO");
   });
 });
