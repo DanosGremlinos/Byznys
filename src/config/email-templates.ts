@@ -60,15 +60,17 @@ ${OPT_OUT}`,
   {
     key: "offer_l2_default",
     kind: "offer_l2",
-    name: "L2 – finální návrh a smlouva",
+    name: "L2 – finální návrh, smlouva a dotaz na rozpočet",
     subject: "Finální návrh webu pro {{businessName}}",
     body: `Dobrý den{{contactGreeting}},
 
 děkuji za odpověď, jsem rád, že se vám návrh líbí. Finální podobu webu najdete tady: {{previewUrl}}
 
-V příloze posílám smlouvu. Web vám můžu i dál spravovat – hosting, doména, zabezpečení a úpravy obsahu. Možnosti správy a jejich cenu vám pošlu v dalším e-mailu.
+V příloze posílám smlouvu. Web vám můžu i dál spravovat – hosting, doména, zabezpečení, zálohy a úpravy obsahu.
 
-Pokud byste chtěli cokoliv upravit nebo vám není něco jasné, stačí odepsat.
+Abych vám správu připravil na míru: kolik byste byli ochotni za web dávat měsíčně? Stačí odepsat orientační částku a podle ní vám pošlu tři varianty.
+
+Pokud byste chtěli na webu cokoliv upravit, napište mi.
 
 S pozdravem
 {{senderName}}

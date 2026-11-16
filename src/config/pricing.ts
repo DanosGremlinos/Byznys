@@ -1,26 +1,23 @@
 /**
- * Package calculator ("popcorn" / decoy pricing).
+ * Package calculator ("popcorn" / decoy pricing) built from the list of services (Balíčky → Služby).
  *
- * The client says how much they would pay per month (the budget). From it we build three packages:
- * - Premium (the target): a bit ABOVE the budget, has everything.
- * - Standard (the decoy): only slightly cheaper than Premium but visibly missing a few features,
- *   so Premium looks like the obvious deal ("only 100 Kč more for all of this").
- * - Základ: clearly cheaper and bare-bones, makes the other two look generous.
+ * The client says how much they would pay per month (the budget). From the services we build three packages:
+ * - Premium (the target): required services + optional ones by priority, up to budget × premiumOverBudget,
+ *   so it ends up a bit ABOVE the budget.
+ * - Standard (the decoy): Premium without its `decoyRemoveCount` cheapest extras – only slightly cheaper,
+ *   but visibly missing a few things, so Premium looks like the obvious deal.
+ * - Základ: required services + optional ones up to budget × basicBudgetRatio; clearly cheaper and bare-bones.
+ * A package costs the sum of its services, rounded to the nearest price ending in 90 Kč.
  *
  * All amounts are in whole Kč. Change the numbers here; the calculator and its tests read only this file.
  */
 export const PRICING_CONFIG = {
-  /** Premium target = budget × this, then rounded DOWN to a price ending in 90. Owner's choice: above budget. */
+  /** Premium may cost up to budget × this. Owner's choice: above budget. */
   premiumOverBudget: 1.15,
-  /** Gap between Standard and Premium = Premium × this, rounded to whole hundreds, at least `minDecoyGapKc`. */
-  decoyGapRatio: 0.1,
-  minDecoyGapKc: 100,
-  /** Základ = Premium × this, rounded DOWN to a price ending in 90. */
-  basicRatio: 0.5,
-  /** Základ must stay at least this much below Standard. */
-  minBasicGapKc: 200,
-  /** Never offer Základ below this (hosting, domain, your time). */
-  minBasicKc: 290,
+  /** Základ takes services up to budget × this. */
+  basicBudgetRatio: 0.5,
+  /** How many of Premium's cheapest extras Standard lacks. */
+  decoyRemoveCount: 2,
   /** Below this budget the result is shown with a warning. */
   lowBudgetKc: 500,
   /** Above this budget the result is shown with a warning (check the number in the client's reply). */

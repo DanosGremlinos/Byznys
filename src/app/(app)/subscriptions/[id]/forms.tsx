@@ -79,7 +79,6 @@ export function PaymentForm({
   );
 }
 
-type Tier = { id: string; name: string; features: string[] };
 type Current = {
   tierId: string | null;
   name: string;
@@ -91,32 +90,23 @@ type Current = {
 export function PackageForm({
   subscriptionId,
   current,
-  tiers,
   disabled,
 }: {
   subscriptionId: string;
   current: Current;
-  tiers: Tier[];
   disabled: boolean;
 }) {
   const [state, action, pending] = useActionState<FormState, FormData>(
     changePackageAction.bind(null, subscriptionId),
     {},
   );
-  const [tierId, setTierId] = useState(current.tierId ?? "");
   const [period, setPeriod] = useState<BillingPeriod>(current.billingPeriod);
-  const tier = tiers.find((t) => t.id === tierId);
-  const isCurrent = tierId === (current.tierId ?? "");
-  // The price stays the client's; when only the payment period changes it is converted with the yearly
-  // rule ("2 měsíce zdarma"). Choosing different package contents prefills name and contents only.
+  // When only the payment period changes, the price is converted with the yearly rule ("2 měsíce zdarma").
   const currentMonthly =
     current.billingPeriod === "yearly" ? monthlyFromYearly(current.priceHalere) : current.priceHalere;
   const priceHalere =
     period === current.billingPeriod ? current.priceHalere : priceForPeriod(currentMonthly, period);
-  const values =
-    isCurrent || !tier
-      ? { name: current.name, features: current.features, priceHalere }
-      : { name: tier.name, features: tier.features, priceHalere };
+  const values = { name: current.name, features: current.features, priceHalere };
   return (
     <form action={action} className="grid gap-3">
       <div className="grid gap-1.5">
@@ -134,21 +124,11 @@ export function PackageForm({
           ))}
         </NativeSelect>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="grid gap-1.5">
-          <Label htmlFor="tierId">Obsah balíčku</Label>
-          <NativeSelect id="tierId" name="tierId" value={tierId} onChange={(e) => setTierId(e.target.value)}>
-            {tiers.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-            <option value="">Vlastní obsah</option>
-          </NativeSelect>
-        </div>
+      <input type="hidden" name="tierId" value={current.tierId ?? ""} />
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="grid gap-1.5">
           <Label htmlFor="pkg-name">Název</Label>
-          <Input id="pkg-name" name="name" defaultValue={values.name} key={`n-${tierId}`} required />
+          <Input id="pkg-name" name="name" defaultValue={values.name} key="n" required />
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="pkg-price">Cena (Kč / {PERIOD_UNIT[period]})</Label>
@@ -157,19 +137,19 @@ export function PackageForm({
             name="price"
             inputMode="decimal"
             defaultValue={String(values.priceHalere / 100)}
-            key={`p-${tierId}-${period}`}
+            key={`p-${period}`}
             required
           />
         </div>
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor="pkg-features">Funkce (jedna na řádek)</Label>
+        <Label htmlFor="pkg-features">Co balíček obsahuje (jedna věc na řádek)</Label>
         <Textarea
           id="pkg-features"
           name="features"
           rows={5}
           defaultValue={values.features.join("\n")}
-          key={`f-${tierId}`}
+          key="f"
         />
       </div>
       <div className="flex flex-wrap items-center gap-3">

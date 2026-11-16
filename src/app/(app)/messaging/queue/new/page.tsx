@@ -44,7 +44,6 @@ async function Form({ searchParams }: Pick<PageProps<"/messaging/queue/new">, "s
     <ComposeForm
       leads={options.leads}
       clients={options.clients}
-      tiers={options.tiers.map((t) => ({ id: t.id, name: t.name }))}
       packageOffers={offers.map((o) => ({
         id: o.id,
         clientId: o.client.id,

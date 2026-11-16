@@ -62,8 +62,9 @@ export function jobStage(i: JobStageInput): JobStage {
   const sent = new Set(i.sentKinds);
   if (sent.has("offer_l3")) return { key: "l3_sent", label: "Balíčky nabídnuty (L3)", group: "open" };
   if (i.hasPackageOffer) return { key: "packages_ready", label: "Balíčky spočítány", group: "open" };
-  if (sent.has("offer_budget")) return { key: "budget_asked", label: "Čeká na rozpočet", group: "open" };
-  if (sent.has("offer_l2")) return { key: "l2_sent", label: "Smlouva odeslána (L2)", group: "open" };
+  // L2 (návrh + smlouva) also asks for the monthly budget; offer_budget is the older separate email.
+  if (sent.has("offer_l2") || sent.has("offer_budget"))
+    return { key: "budget_asked", label: "Čeká na rozpočet (L2)", group: "open" };
   if (sent.has("offer_l1")) return { key: "l1_sent", label: "Nabídka odeslána (L1)", group: "open" };
   return { key: "draft", label: "Rozpracováno", group: "open" };
 }

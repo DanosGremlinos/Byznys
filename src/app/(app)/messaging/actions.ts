@@ -41,8 +41,6 @@ const composeSchema = z.object({
   screenshotUrl: z
     .union([z.literal(""), z.string().url("Neplatná URL screenshotu").startsWith("https://")])
     .optional(),
-  tierId: z.string().optional(),
-  price: z.string().optional(),
   packageOfferId: z.union([z.literal(""), z.string().uuid()]).optional(),
   useAi: z.string().optional(),
 });
@@ -53,7 +51,6 @@ export async function composeOffer(_prev: ActionState, formData: FormData): Prom
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   const d = parsed.data;
   const [type, id] = d.recipient.split(":");
-  const priceCzk = d.price ? Number(d.price.replace(/\s/g, "").replace(",", ".")) : NaN;
   let emailId: string;
   let warnings: string[];
   try {
@@ -63,8 +60,6 @@ export async function composeOffer(_prev: ActionState, formData: FormData): Prom
       level: d.level,
       previewUrl: d.previewUrl || null,
       screenshotUrl: d.screenshotUrl || null,
-      tierId: d.tierId || null,
-      priceHalere: Number.isFinite(priceCzk) && priceCzk > 0 ? Math.round(priceCzk * 100) : null,
       packageOfferId: d.level === "offer_l3" ? d.packageOfferId || null : null,
       useAi: d.useAi === "on",
     }));

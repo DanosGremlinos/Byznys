@@ -1,22 +1,27 @@
 import "server-only";
 import { asc, desc, eq } from "drizzle-orm";
 import type { Database } from "@/db/client";
-import { clients, packageOffers, subscriptionTiers, websites, type OfferedPackageJson } from "@/db/schema";
-import { calculatePackages, type PackageCalculation } from "@/lib/package-calculator";
+import { clients, packageOffers, services, websites, type OfferedPackageJson } from "@/db/schema";
+import { calculatePackages, type PackageCalculation, type ServiceItem } from "@/lib/package-calculator";
 
 export type PackageOffer = typeof packageOffers.$inferSelect;
 
-/** Active package templates in calculator order (Základ, Standard, Premium). */
-export async function activeTemplates(db: Database) {
+/** Active services in calculator order (priority). */
+export async function activeServices(db: Database): Promise<ServiceItem[]> {
   return db
-    .select({ id: subscriptionTiers.id, name: subscriptionTiers.name, features: subscriptionTiers.features })
-    .from(subscriptionTiers)
-    .where(eq(subscriptionTiers.isActive, true))
-    .orderBy(asc(subscriptionTiers.sortOrder), asc(subscriptionTiers.name));
+    .select({
+      id: services.id,
+      name: services.name,
+      priceHalere: services.monthlyPriceHalere,
+      required: services.required,
+    })
+    .from(services)
+    .where(eq(services.isActive, true))
+    .orderBy(asc(services.sortOrder), asc(services.name));
 }
 
 export async function calculateForBudget(db: Database, budgetHalere: number): Promise<PackageCalculation> {
-  return calculatePackages(budgetHalere, await activeTemplates(db));
+  return calculatePackages(budgetHalere, await activeServices(db));
 }
 
 export type SavePackageOfferInput = {
@@ -109,13 +114,13 @@ export async function listPackageOffers(db: Database, filter: { clientId?: strin
 
 /** Clients and their jobs (websites) for the calculator's pickers. */
 export async function calculatorOptions(db: Database) {
-  const [clientRows, websiteRows, templates] = await Promise.all([
+  const [clientRows, websiteRows, serviceRows] = await Promise.all([
     db.select({ id: clients.id, name: clients.businessName }).from(clients).orderBy(asc(clients.businessName)),
     db
       .select({ id: websites.id, clientId: websites.clientId, name: websites.name, domain: websites.domain })
       .from(websites)
       .orderBy(desc(websites.updatedAt)),
-    activeTemplates(db),
+    activeServices(db),
   ]);
-  return { clients: clientRows, websites: websiteRows, templates };
+  return { clients: clientRows, websites: websiteRows, services: serviceRows };
 }

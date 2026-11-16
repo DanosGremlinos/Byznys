@@ -126,6 +126,11 @@ describe.skipIf(!url)("messaging (DB)", () => {
     expect(client).toBeTruthy();
     const contract = await db.query.contracts.findFirst({ where: eq(contracts.clientId, client!.id) });
     expect(contract?.body).toContain(client!.businessName);
+    // L2 asks for the budget; the package (and price) isn't known yet, the contract says so in words.
+    expect(contract?.body).toContain("podle balíčku, který si objednatel zvolí");
+    expect(contract?.body).not.toMatch(/\{\{(priceTerms|packageName|monthlyPrice)\}\}/);
+    const l2 = await db.query.emails.findFirst({ where: eq(emails.id, emailId) });
+    expect(l2?.bodyText).toContain("kolik byste byli ochotni za web dávat měsíčně");
     const [att] = await db.select().from(emailAttachments).where(eq(emailAttachments.emailId, emailId));
     expect(att.url).toBe(`/api/contracts/${contract!.id}/pdf`);
     const result = await sendApprovedEmail(db, provider, emailId);

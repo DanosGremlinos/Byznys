@@ -26,7 +26,28 @@ import { emails } from "./messaging";
 // Each subscription has a "paid until" date that is moved forward manually when a payment
 // arrives. A subscription is overdue when paid_until < today (Europe/Prague).
 
-/** Package templates: starting point for a client's subscription (price and features are editable per client). */
+/**
+ * Services offered for website care, each with a monthly price. The calculator composes the three packages
+ * (Základ, Standard, Premium) from these services according to the client's budget.
+ */
+export const services = pgTable("services", {
+  id: uuid().primaryKey().defaultRandom(),
+  name: text().notNull().unique(),
+  description: text(),
+  /** Monthly price of the service; a package costs the sum of its services (rounded to …90 Kč). */
+  monthlyPriceHalere: integer().notNull().default(0),
+  /** Always part of every package (e.g. hosting, domain). */
+  required: boolean().notNull().default(false),
+  /** Priority: lower = added to packages first. */
+  sortOrder: integer().notNull().default(0),
+  isActive: boolean().notNull().default(true),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/**
+ * LEGACY package templates (replaced by `services`; no longer shown in the app). Kept because existing
+ * subscriptions and their history reference it. (price and features are editable per client). */
 export const subscriptionTiers = pgTable("subscription_tiers", {
   id: uuid().primaryKey().defaultRandom(),
   name: text().notNull().unique(),

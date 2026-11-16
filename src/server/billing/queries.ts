@@ -7,21 +7,12 @@ import {
   dunningSteps,
   jobs,
   subscriptionEvents,
-  subscriptionTiers,
   subscriptions,
   websites,
 } from "@/db/schema";
 import { addDays, daysOverdue } from "@/lib/dates";
 import { pragueToday } from "@/lib/format";
 import { requireAdmin } from "@/lib/auth-guard";
-
-export async function listTiers() {
-  await requireAdmin();
-  return db
-    .select()
-    .from(subscriptionTiers)
-    .orderBy(asc(subscriptionTiers.sortOrder), asc(subscriptionTiers.name));
-}
 
 export type SubscriptionFilters = { q?: string; status?: string; tier?: string };
 
@@ -95,7 +86,7 @@ export async function getSubscriptionDetail(id: string) {
 
 export async function newSubscriptionOptions() {
   await requireAdmin();
-  const [clientRows, websiteRows, tiers] = await Promise.all([
+  const [clientRows, websiteRows] = await Promise.all([
     db
       .select({ id: clients.id, name: clients.businessName })
       .from(clients)
@@ -106,13 +97,8 @@ export async function newSubscriptionOptions() {
       .leftJoin(subscriptions, eq(subscriptions.websiteId, websites.id))
       .where(isNull(subscriptions.id))
       .orderBy(asc(websites.name)),
-    db
-      .select()
-      .from(subscriptionTiers)
-      .where(eq(subscriptionTiers.isActive, true))
-      .orderBy(asc(subscriptionTiers.sortOrder)),
   ]);
-  return { clients: clientRows, websites: websiteRows, tiers };
+  return { clients: clientRows, websites: websiteRows };
 }
 
 export type OverdueSort = "days" | "amount" | "client";

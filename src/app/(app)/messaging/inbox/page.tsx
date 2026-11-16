@@ -129,7 +129,7 @@ async function Inbox({ searchParams }: Pick<PageProps<"/messaging/inbox">, "sear
                     </>
                   ) : null}
                 </p>
-                {thread.client && thread.emails.some((e) => e.kind === "offer_budget") ? (
+                {thread.client && thread.emails.some((e) => e.kind === "offer_l2" || e.kind === "offer_budget") ? (
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Button asChild size="sm" variant="outline">
                       <Link href={`/settings/tiers?client=${thread.client.id}`}>

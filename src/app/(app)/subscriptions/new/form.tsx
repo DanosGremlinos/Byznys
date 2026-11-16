@@ -21,7 +21,6 @@ import { createSubscriptionAction, type FormState } from "../actions";
 type Props = {
   clients: { id: string; name: string }[];
   websites: { id: string; clientId: string; name: string; domain: string | null }[];
-  tiers: { id: string; name: string; features: string[] }[];
   initialClientId: string;
   initialWebsiteId: string;
   /** Package chosen from saved calculator packages (prefills name, price, features). */
@@ -40,7 +39,6 @@ type Props = {
 export function NewSubscriptionForm({
   clients,
   websites,
-  tiers,
   initialClientId,
   initialWebsiteId,
   fromOffer,
@@ -53,13 +51,10 @@ export function NewSubscriptionForm({
   const [websiteId, setWebsiteId] = useState<string>(initialWebsiteId);
   const effectiveWebsite =
     websiteId === "new" || clientSites.some((w) => w.id === websiteId) ? websiteId : (clientSites[0]?.id ?? "new");
-  const [tierId, setTierId] = useState(fromOffer ? (fromOffer.tierId ?? "") : (tiers[0]?.id ?? ""));
-  // Until the template is changed by hand, the package from the saved offer is used.
-  const [useOffer, setUseOffer] = useState(fromOffer !== null);
-  const template = tiers.find((t) => t.id === tierId);
-  const tier = useOffer && fromOffer ? { name: fromOffer.name, features: fromOffer.features } : template;
-  // Price comes only from saved calculator packages; otherwise it is typed for this client.
-  const offerMonthly = useOffer && fromOffer ? fromOffer.priceHalere : null;
+  // Package from the saved calculator packages (chosen in the job); otherwise everything is typed by hand.
+  const useOffer = fromOffer !== null;
+  const tier = fromOffer ? { name: fromOffer.name, features: fromOffer.features } : null;
+  const offerMonthly = fromOffer ? fromOffer.priceHalere : null;
   const clientName = clients.find((c) => c.id === clientId)?.name ?? "";
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
   const price = offerMonthly !== null ? priceForPeriod(offerMonthly, period) : null;
@@ -151,29 +146,10 @@ export function NewSubscriptionForm({
           ))}
         </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="grid gap-1.5">
-          <Label htmlFor="tierId">Obsah balíčku</Label>
-          <NativeSelect
-            id="tierId"
-            name="tierId"
-            value={tierId}
-            onChange={(e) => {
-              setTierId(e.target.value);
-              setUseOffer(false);
-            }}
-          >
-            {tiers.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-            <option value="">Vlastní obsah</option>
-          </NativeSelect>
-        </div>
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="grid gap-1.5">
           <Label htmlFor="name">Název balíčku pro klienta</Label>
-          <Input id="name" name="name" defaultValue={tier?.name ?? ""} key={`n-${tierId}-${useOffer}`} required />
+          <Input id="name" name="name" defaultValue={tier?.name ?? ""} key={`n-${useOffer}`} required />
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="price">Cena (Kč / {PERIOD_UNIT[period]})</Label>
@@ -182,7 +158,7 @@ export function NewSubscriptionForm({
             name="price"
             inputMode="decimal"
             defaultValue={price !== null ? String(price / 100) : ""}
-            key={`p-${tierId}-${useOffer}-${period}`}
+            key={`p-${useOffer}-${period}`}
             required
           />
           {period === "yearly" && offerMonthly !== null ? (
@@ -201,7 +177,7 @@ export function NewSubscriptionForm({
           name="features"
           rows={6}
           defaultValue={tier?.features.join("\n") ?? ""}
-          key={`f-${tierId}-${useOffer}`}
+          key={`f-${useOffer}`}
         />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">

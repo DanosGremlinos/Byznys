@@ -4,6 +4,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database } from "@/db/client";
 import {
+  services,
   builderProjects,
   clients,
   emailBlacklist,
@@ -40,7 +41,7 @@ describe.skipIf(!url)("packages and jobs (DB)", () => {
     const job = await getJobDetail(db, demoSite.id);
     expect(job?.stage.key).toBe("packages_ready");
     expect(job?.offers).toHaveLength(1);
-    expect(job?.offers[0].packages.map((p) => p.priceHalere / 100)).toEqual([490, 990, 1090]);
+    expect(job?.offers[0].packages.map((p) => p.priceHalere / 100)).toEqual([490, 990, 1190]);
   });
 
   it("calculates from the active templates and saves the offer to the client's job", async () => {
@@ -154,5 +155,14 @@ describe.skipIf(!url)("packages and jobs (DB)", () => {
         where: and(eq(builderProjects.id, named.id), isNull(builderProjects.websiteId)),
       }),
     ).toBeUndefined();
+  });
+
+  it("calculates from the services in the database", async () => {
+    const r = await calculateForBudget(db, 100_000);
+    expect(r.packages.map((p) => p.priceHalere / 100)).toEqual([490, 990, 1190]);
+    await db.update(services).set({ isActive: false }).where(eq(services.name, "Rezervační systém"));
+    const without = await calculateForBudget(db, 100_000);
+    expect(without.packages[2].features).not.toContain("Rezervační systém");
+    await db.update(services).set({ isActive: true }).where(eq(services.name, "Rezervační systém"));
   });
 });

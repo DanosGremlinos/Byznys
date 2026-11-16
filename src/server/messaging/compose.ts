@@ -12,7 +12,6 @@ import {
   emailThreads,
   emails,
   leads,
-  subscriptionTiers,
   websites,
 } from "@/db/schema";
 import type { ScoreFactorResult } from "@/db/schema/types";
@@ -84,15 +83,15 @@ export function issuesText(factors: ScoreFactorResult[] | null | undefined): str
   return lines.join("\n");
 }
 
-/** Package contents without prices (used when no packages were calculated for the client). */
-export function tierComparisonText(tiers: { name: string; features: string[] }[]): string {
-  return tiers.map((t) => `${t.name}\n${t.features.map((f) => `  • ${f}`).join("\n")}`).join("\n\n");
-}
-
-/** Price wording for the contract: both payment options, or "by agreement" when no price is known yet. */
-export function contractPriceTerms(monthlyHalere: number | null): string {
-  if (monthlyHalere === null) return "dle samostatné dohody podle zvoleného balíčku";
-  return `${formatCzk(monthlyHalere).replace(/\s/g, " ")} měsíčně, nebo ${yearlyOfferText(monthlyHalere)} při platbě na celý rok`;
+/**
+ * Price wording for the contract: package and both payment options, or "by agreement" when the package is not
+ * known yet (the contract goes out with L2, before the client states the budget).
+ */
+export function contractPriceTerms(monthlyHalere: number | null, packageName: string | null = null): string {
+  if (monthlyHalere === null)
+    return "podle balíčku, který si objednatel zvolí z nabídky poskytovatele (cena dle samostatné dohody)";
+  const pkg = packageName ? ` (balíček ${packageName})` : "";
+  return `${formatCzk(monthlyHalere).replace(/\s/g, " ")} měsíčně${pkg}, nebo ${yearlyOfferText(monthlyHalere)} při platbě na celý rok`;
 }
 
 export function senderName(): string {
@@ -109,8 +108,6 @@ export type OfferInput = {
   level: OfferLevel;
   previewUrl?: string | null;
   screenshotUrl?: string | null;
-  tierId?: string | null;
-  priceHalere?: number | null;
   /** L3: offer the three packages calculated for this client (Balíčky → kalkulačka). */
   packageOfferId?: string | null;
   useAi: boolean;
@@ -158,14 +155,10 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
         orderBy: desc(websites.updatedAt),
       })
     : undefined;
-  const tiers = await db.query.subscriptionTiers.findMany({
-    where: eq(subscriptionTiers.isActive, true),
-    orderBy: asc(subscriptionTiers.sortOrder),
-  });
-  const tier = tiers.find((t) => t.id === input.tierId) ?? tiers[1] ?? tiers[0];
-  const packageName = recommended?.name ?? tier?.name ?? null;
+  // Packages and prices come only from the calculator (saved packages for this client).
+  const packageName = recommended?.name ?? null;
   // Prices come from the calculator (saved packages) or are typed for this client; package contents carry none.
-  const priceHalere = recommended?.priceHalere ?? input.priceHalere ?? null;
+  const priceHalere = recommended?.priceHalere ?? null;
   if (input.level === "offer_l3" && !offer)
     warnings.push("Pro klienta nejsou spočítané balíčky – e-mail L3 neobsahuje ceny. Spočítejte je v kalkulačce.");
   const businessName = client?.businessName ?? lead!.name;
@@ -193,7 +186,7 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
     monthlyPrice: priceHalere !== null ? formatCzk(priceHalere).replace(/\s/g, " ") : null,
     /** "9 900 Kč ročně (2 měsíce zdarma)" – the cheaper yearly payment of the proposed package. */
     yearlyPrice: priceHalere !== null ? yearlyOfferText(priceHalere) : null,
-    tierComparison: offer ? packageComparisonText(offer.packages) : tierComparisonText(tiers),
+    tierComparison: offer ? packageComparisonText(offer.packages) : null,
     websiteDomain: website?.domain ?? null,
   };
   let subject = renderTemplate(template.subject, vars);
@@ -225,14 +218,7 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
                 cena_při_roční_platbě: vars.yearlyPrice,
                 funkce: recommended.features,
               }
-            : tier
-              ? {
-                  název: tier.name,
-                  cena_měsíčně: vars.monthlyPrice,
-                  cena_při_roční_platbě: vars.yearlyPrice,
-                  funkce: tier.features,
-                }
-              : null,
+            : null,
           ...(offer
             ? {
                 nabízené_balíčky: offer.packages.map((p) => ({
@@ -316,7 +302,7 @@ export async function createOfferDraft(db: Database, input: OfferInput): Promise
         domain: website?.domain ?? null,
         monthlyPrice: vars.monthlyPrice,
         yearlyPrice: vars.yearlyPrice,
-        priceTerms: contractPriceTerms(priceHalere),
+        priceTerms: contractPriceTerms(priceHalere, packageName),
         packageName,
         tierName: packageName,
         city: process.env.PROVIDER_CITY ?? client.city,

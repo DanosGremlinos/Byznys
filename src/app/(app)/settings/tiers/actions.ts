@@ -5,39 +5,52 @@ import { z } from "zod";
 import { db } from "@/db";
 import { requireAdmin } from "@/lib/auth-guard";
 import { savePackageOffer } from "@/server/billing/package-offers";
-import { upsertTier } from "@/server/billing/subscriptions";
+import { deleteService, upsertService } from "@/server/billing/services";
 
-export type TierState = { ok?: string; error?: string };
+export type ServiceState = { ok?: string; error?: string };
 
-const schema = z.object({
-  name: z.string().trim().min(1, "Zadejte název").max(100),
+const serviceSchema = z.object({
+  name: z.string().trim().min(1, "Zadejte název služby").max(200),
   description: z.string().trim().max(500).optional(),
-  features: z.string().optional(),
-  sortOrder: z.coerce.number().int().min(0).max(999),
+  price: z
+    .string()
+    .trim()
+    .transform((v) => Number((v || "0").replace(/\s/g, "").replace(",", ".")))
+    .refine((n) => Number.isFinite(n) && n >= 0, "Zadejte cenu v Kč (0 nebo víc)"),
+  sortOrder: z.coerce.number().int().min(0).max(9999),
+  required: z.string().optional(),
   isActive: z.string().optional(),
 });
 
-export async function saveTier(id: string | null, _prev: TierState, formData: FormData): Promise<TierState> {
+export async function saveService(
+  id: string | null,
+  _prev: ServiceState,
+  formData: FormData,
+): Promise<ServiceState> {
   await requireAdmin();
-  const parsed = schema.safeParse(Object.fromEntries(formData));
+  const parsed = serviceSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message };
   const d = parsed.data;
   try {
-    await upsertTier(db, id, {
+    await upsertService(db, id, {
       name: d.name,
       description: d.description || null,
-      features: (d.features ?? "")
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean),
+      monthlyPriceHalere: Math.round(d.price * 100),
+      required: d.required === "on",
       sortOrder: d.sortOrder,
       isActive: d.isActive === "on",
     });
   } catch {
-    return { error: "Uložení selhalo (název musí být jedinečný)." };
+    return { error: "Uložení selhalo (název služby musí být jedinečný)." };
   }
   refresh();
-  return { ok: id ? "Uloženo." : "Balíček přidán." };
+  return { ok: id ? "Uloženo." : "Služba přidána." };
+}
+
+export async function removeService(id: string) {
+  await requireAdmin();
+  await deleteService(db, id);
+  refresh();
 }
 
 export type OfferState = { ok?: string; error?: string; offerId?: string; clientId?: string };

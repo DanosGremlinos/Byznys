@@ -16,13 +16,13 @@ import {
   calculatePackages,
   decoyExplanation,
   type OfferedPackage,
-  type PackageTemplate,
+  type ServiceItem,
 } from "@/lib/package-calculator";
 import { cn } from "@/lib/utils";
 import { savePackageOfferAction, type OfferState } from "./actions";
 
 type Props = {
-  templates: PackageTemplate[];
+  services: ServiceItem[];
   clients: { id: string; name: string }[];
   websites: { id: string; clientId: string; name: string; domain: string | null }[];
   initialClientId: string;
@@ -32,11 +32,11 @@ type Props = {
 
 const parseKc = (v: string) => Number(v.replace(/\s/g, "").replace(",", "."));
 
-function calc(budget: string, templates: PackageTemplate[]) {
+function calc(budget: string, services: ServiceItem[]) {
   const n = parseKc(budget);
   if (!budget.trim() || !Number.isFinite(n) || n <= 0) return { packages: null, warnings: [], error: null };
   try {
-    const r = calculatePackages(Math.round(n * 100), templates);
+    const r = calculatePackages(Math.round(n * 100), services);
     return { packages: r.packages, warnings: r.warnings, error: null };
   } catch (err) {
     return { packages: null, warnings: [], error: err instanceof Error ? err.message : "Chyba výpočtu" };
@@ -44,7 +44,7 @@ function calc(budget: string, templates: PackageTemplate[]) {
 }
 
 export function PackageCalculator({
-  templates,
+  services,
   clients,
   websites,
   initialClientId,
@@ -58,7 +58,7 @@ export function PackageCalculator({
   const [websiteId, setWebsiteId] = useState(initialWebsiteId);
   const effectiveWebsite = clientSites.some((w) => w.id === websiteId) ? websiteId : (clientSites[0]?.id ?? "");
   const [edited, setEdited] = useState<OfferedPackage[] | null>(null);
-  const result = useMemo(() => calc(budget, templates), [budget, templates]);
+  const result = useMemo(() => calc(budget, services), [budget, services]);
   const packages = edited ?? result.packages;
   const explanation = packages ? decoyExplanation(packages) : null;
 
@@ -219,7 +219,7 @@ export function PackageCalculator({
       ) : (
         <p className="text-sm text-muted-foreground">
           <Calculator className="mr-1 inline size-4" />
-          Zadejte částku, kterou klient napsal v odpovědi na „Dotaz na rozpočet“. Balíčky se spočítají hned.
+          Zadejte částku, kterou klient napsal v odpovědi na L2 (kolik je ochoten měsíčně platit). Balíčky se spočítají hned.
         </p>
       )}
 

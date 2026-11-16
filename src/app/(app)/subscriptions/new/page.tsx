@@ -42,11 +42,6 @@ async function Form({ searchParams }: Pick<PageProps<"/subscriptions/new">, "sea
     <NewSubscriptionForm
       clients={options.clients}
       websites={options.websites}
-      tiers={options.tiers.map((t) => ({
-        id: t.id,
-        name: t.name,
-        features: t.features,
-      }))}
       initialClientId={offer?.clientId ?? (typeof sp.client === "string" ? sp.client : "")}
       initialWebsiteId={offer?.websiteId ?? (typeof sp.website === "string" ? sp.website : "")}
       fromOffer={

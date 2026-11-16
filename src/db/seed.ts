@@ -4,6 +4,7 @@
  */
 import { and, eq, lt, sql } from "drizzle-orm";
 import { DEFAULT_EMAIL_TEMPLATES } from "../config/email-templates";
+import { DEFAULT_SERVICES } from "../config/services";
 import { pragueToday } from "../lib/format";
 import { calculatePackages } from "../lib/package-calculator";
 import { buildSitePrompt } from "../server/builder/prompt";
@@ -124,7 +125,7 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`
         TRUNCATE TABLE
-          dunning_steps, dunning_runs, subscription_events, subscriptions, subscription_tiers,
+          dunning_steps, dunning_runs, subscription_events, subscriptions, subscription_tiers, services,
           webhook_events, email_blacklist, contracts, contract_templates, email_attachments, emails,
           email_threads, email_templates, builder_prompt_versions, builder_assets, builder_projects,
           websites, clients, lead_site_analyses, lead_reviews, lead_photos, leads, jobs
@@ -375,6 +376,17 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
         })
         .where(eq(s.leads.id, lead.id));
     }
+
+    // ---- Services (calculator) ----------------------------------------------
+    await tx.insert(s.services).values(
+      DEFAULT_SERVICES.map((sv, i) => ({
+        name: sv.name,
+        description: sv.description ?? null,
+        monthlyPriceHalere: kc(sv.priceKc),
+        required: sv.required ?? false,
+        sortOrder: (i + 1) * 10,
+      })),
+    );
 
     // ---- Tiers ------------------------------------------------------------
     const [tierBasic, tierStandard, tierPremium] = await tx
@@ -725,7 +737,7 @@ export async function runSeed(db: Database): Promise<SeedSummary> {
 Poskytovatel vytvoří pro objednatele webové stránky na doméně {{domain}} a zajistí jejich provoz, hosting a údržbu.
 
 ## 2. Cena a platební podmínky
-Předplatné (balíček {{packageName}}) činí {{priceTerms}}. Platba je splatná vždy na začátku placeného období (měsíce, resp. roku).
+Předplatné činí {{priceTerms}}. Platba je splatná vždy na začátku placeného období (měsíce, resp. roku).
 
 ## 3. Doba trvání
 Smlouva se uzavírá na dobu neurčitou s výpovědní lhůtou 1 měsíc.
@@ -1254,7 +1266,15 @@ Poskytovatel                      Objednatel`,
         receivedAt: r,
         createdAt: r,
       });
-      const calc = calculatePackages(100_000, tiers);
+      const calc = calculatePackages(
+        100_000,
+        DEFAULT_SERVICES.map((sv, i) => ({
+          id: `seed-${i}`,
+          name: sv.name,
+          priceHalere: kc(sv.priceKc),
+          required: sv.required ?? false,
+        })),
+      );
       await tx.insert(s.packageOffers).values({
         clientId: client.id,
         websiteId: website.id,

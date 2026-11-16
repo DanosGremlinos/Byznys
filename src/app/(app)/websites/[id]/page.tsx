@@ -57,8 +57,7 @@ async function Job({ params }: Pick<PageProps<"/websites/[id]">, "params">) {
   const steps: { label: string; done: boolean }[] = [
     { label: "Návrh v Builderu", done: website.builderProjects.length > 0 },
     { label: "L1 – první nabídka odeslána", done: sentKinds.has("offer_l1") },
-    { label: "L2 – návrh a smlouva odeslány", done: sentKinds.has("offer_l2") },
-    { label: "Dotaz na rozpočet odeslán", done: sentKinds.has("offer_budget") },
+    { label: "L2 – návrh, smlouva a dotaz na rozpočet odeslány", done: sentKinds.has("offer_l2") },
     { label: "Balíčky spočítány", done: offers.length > 0 },
     { label: "L3 – balíčky nabídnuty", done: sentKinds.has("offer_l3") },
     { label: "Předplatné založeno", done: !!sub },
@@ -150,8 +149,9 @@ async function Job({ params }: Pick<PageProps<"/websites/[id]">, "params">) {
             ) : (
               <div className="grid gap-3 text-sm">
                 <p className="text-muted-foreground">
-                  Zakázka zatím nemá balíček. Postup: pošlete „Dotaz na rozpočet“, z odpovědi spočítejte balíčky,
-                  pošlete je v e-mailu L3 a po souhlasu klienta založte předplatné.
+                  Zakázka zatím nemá balíček. Postup: v L2 se klienta zeptáte na rozpočet, z odpovědi spočítáte
+                  balíčky, pošlete je v e-mailu L3 a balíček, který si klient vybere, zvolíte dole u uložených
+                  balíčků – tím se založí předplatné.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button asChild size="sm" variant="outline">

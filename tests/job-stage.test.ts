@@ -14,7 +14,7 @@ describe("jobStage", () => {
   it("follows the sales pipeline until a subscription exists", () => {
     expect(key({})).toBe("draft");
     expect(key({ sentKinds: ["offer_l1"] })).toBe("l1_sent");
-    expect(key({ sentKinds: ["offer_l1", "offer_l2"] })).toBe("l2_sent");
+    expect(key({ sentKinds: ["offer_l1", "offer_l2"] })).toBe("budget_asked");
     expect(key({ sentKinds: ["offer_l2", "offer_budget"] })).toBe("budget_asked");
     expect(key({ sentKinds: ["offer_budget"], hasPackageOffer: true })).toBe("packages_ready");
     expect(key({ sentKinds: ["offer_l3"], hasPackageOffer: true })).toBe("l3_sent");

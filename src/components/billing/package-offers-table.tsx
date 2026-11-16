@@ -83,6 +83,7 @@ export function PackageOffersTable({ offers, showClient = true }: { offers: Offe
                         E-mail L3
                       </Link>
                     </Button>
+                    <span className="self-center pl-2 text-xs text-muted-foreground">Klient vybral:</span>
                     {o.packages.map((p, i) => (
                       <Button key={i} asChild size="sm" variant={p.recommended ? "default" : "ghost"}>
                         <Link href={`/subscriptions/new?client=${o.client.id}&offer=${o.id}&pkg=${i}`}>

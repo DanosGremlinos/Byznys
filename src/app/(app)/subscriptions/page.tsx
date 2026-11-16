@@ -15,7 +15,8 @@ import { formatPeriodPrice } from "@/lib/billing-period";
 import { formatDate, pragueToday } from "@/lib/format";
 import { SUBSCRIPTION_STATUS_LABELS } from "@/lib/status-labels";
 import { cn } from "@/lib/utils";
-import { listSubscriptions, listTiers, upcomingRenewals } from "@/server/billing/queries";
+import { PACKAGE_NAMES } from "@/config/services";
+import { listSubscriptions, upcomingRenewals } from "@/server/billing/queries";
 
 export const metadata: Metadata = { title: "Předplatné" };
 
@@ -92,8 +93,8 @@ const one = (v: string | string[] | undefined) => (typeof v === "string" && v.tr
 async function List({ searchParams }: Pick<PageProps<"/subscriptions">, "searchParams">) {
   const sp = await searchParams;
   const filters = { q: one(sp.q), status: one(sp.status), tier: one(sp.tier) };
-  const [rows, tiers] = await Promise.all([listSubscriptions(filters), listTiers()]);
-  const names = [...new Set([...tiers.map((t) => t.name), ...rows.map((r) => r.name)])];
+  const rows = await listSubscriptions(filters);
+  const names = [...new Set([...PACKAGE_NAMES, ...rows.map((r) => r.name)])];
   const today = pragueToday();
   return (
     <Card>

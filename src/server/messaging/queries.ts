@@ -11,7 +11,6 @@ import {
   emailThreads,
   emails,
   leads,
-  subscriptionTiers,
   websites,
 } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth-guard";
@@ -69,7 +68,7 @@ export async function getQueueEmail(id: string) {
 
 export async function composeOptions() {
   await requireAdmin();
-  const [leadRows, clientRows, tiers] = await Promise.all([
+  const [leadRows, clientRows] = await Promise.all([
     db
       .select({
         id: leads.id,
@@ -94,11 +93,6 @@ export async function composeOptions() {
       .from(clients)
       .where(isNotNull(clients.email))
       .orderBy(asc(clients.businessName)),
-    db
-      .select()
-      .from(subscriptionTiers)
-      .where(eq(subscriptionTiers.isActive, true))
-      .orderBy(asc(subscriptionTiers.sortOrder)),
   ]);
   const black = await blacklistedAmong(
     db,
@@ -107,7 +101,6 @@ export async function composeOptions() {
   return {
     leads: leadRows.map((l) => ({ ...l, blacklisted: black.has(addressOf(l.email!)) })),
     clients: clientRows.map((c) => ({ ...c, blacklisted: black.has(addressOf(c.email!)) })),
-    tiers,
   };
 }
 

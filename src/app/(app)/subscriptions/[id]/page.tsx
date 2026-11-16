@@ -12,7 +12,7 @@ import { formatPeriodPrice, monthlyEquivalent } from "@/lib/billing-period";
 import { addDays, daysOverdue } from "@/lib/dates";
 import { formatCzk, formatDate, formatDateTime, pragueToday } from "@/lib/format";
 import { EVENT_LABELS, SUBSCRIPTION_STATUS_LABELS, WEBSITE_STATUS_LABELS } from "@/lib/status-labels";
-import { getSubscriptionDetail, listTiers } from "@/server/billing/queries";
+import { getSubscriptionDetail } from "@/server/billing/queries";
 import { pauseSubscriptionAction, suspendWebsiteAction } from "../actions";
 import { CancelForm, PackageForm, PaymentForm } from "./forms";
 
@@ -37,7 +37,7 @@ export default function SubscriptionDetailPage({ params }: PageProps<"/subscript
 
 async function Detail({ params }: Pick<PageProps<"/subscriptions/[id]">, "params">) {
   const { id } = await params;
-  const [sub, tiers] = await Promise.all([getSubscriptionDetail(id), listTiers()]);
+  const sub = await getSubscriptionDetail(id);
   if (!sub) notFound();
   const today = pragueToday();
   const overdueDays = sub.status === "active" ? daysOverdue(sub.paidUntil, today) : 0;
@@ -138,11 +138,6 @@ async function Detail({ params }: Pick<PageProps<"/subscriptions/[id]">, "params
                 priceHalere: sub.priceHalere,
                 features: sub.features,
               }}
-              tiers={tiers.map((t) => ({
-                id: t.id,
-                name: t.name,
-                features: t.features,
-              }))}
               disabled={cancelled}
             />
           </CardContent>

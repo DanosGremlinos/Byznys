@@ -536,3 +536,34 @@ Owner's decisions: yearly = **10 × monthly price ("2 měsíce zdarma")**; schem
 
 ### Checks
 - typecheck ✅, lint ✅, tests ✅ (115; new: delete job), `next build` ✅.
+
+## Úprava 6 — Kalkulačka ze služeb, L2 se ptá na rozpočet ✅
+
+Owner's flow: L1 → L2 (návrh + smlouva + otázka na měsíční rozpočet) → kalkulačka spočítá 3 balíčky ze služeb →
+L3 s balíčky → klient si vybere → v zakázce se zvolí balíček (tím vznikne předplatné).
+Owner's decisions: package price = sum of its services rounded to …90 Kč, Premium up to 15 % above budget;
+schema change approved.
+
+### Database change ⚠️
+- `drizzle/0004_services.sql`: new table **`services`** (name, description, monthly price, required, priority,
+  active). `subscription_tiers` stays (existing subscriptions reference it) but is no longer used in the app.
+
+### Calculator (`src/lib/package-calculator.ts`, rules in `src/config/pricing.ts`)
+- Premium = required services + optional ones by priority while the sum ≤ budget × 1.15 (skips what doesn't fit).
+- Základ = required + Premium's optional services while the sum ≤ budget × 0.5.
+- Standard (decoy) = Premium without its 2 cheapest extras (always keeps at least one extra over Základ).
+- Price = sum rounded to the nearest …90 Kč; each bigger package strictly more expensive.
+- Warnings: required services over budget, everything fits, services without price, Premium barely differs.
+- Package names from `src/config/services.ts` (Základ, Standard, Premium); seed services there too.
+
+### App
+- Balíčky page: "Služby" list (add/edit/delete, price, povinná, pořadí, nabízet) instead of package contents.
+- L2 template asks for the monthly budget; the separate "Dotaz na rozpočet" is gone from the offer form (old
+  emails still count). Job stage after L2 = "Čeká na rozpočet (L2)"; inbox offers "Spočítat balíčky" after L2.
+- Offer form: no package/price fields; L3 uses the calculated packages (warns when there are none).
+- Contract: `{{priceTerms}}` = package + both payment options, or "podle balíčku, který si objednatel zvolí…".
+- Subscriptions: no template selects; prefilled from the package chosen in the job, or typed by hand.
+
+### Checks
+- typecheck ✅, lint ✅, tests ✅ (113), `next build` ✅; browser check (local DB): Balíčky (services +
+  calculator 1 000 Kč → 490 / 990 / 1 190), Nová nabídka, Nové předplatné – no console errors.

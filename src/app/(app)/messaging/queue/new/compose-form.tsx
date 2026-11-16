@@ -13,7 +13,6 @@ type Option = { id: string; name: string; email: string | null; blacklisted: boo
 type Props = {
   leads: (Option & { status: string; score: number | null; city: string | null })[];
   clients: (Option & { previewUrl: string | null })[];
-  tiers: { id: string; name: string }[];
   packageOffers: { id: string; clientId: string; label: string }[];
   initialOfferId: string;
   initialRecipient: string;
@@ -28,25 +27,19 @@ const LEVELS = [
   },
   {
     key: "offer_l2",
-    title: "L2 – návrh + smlouva",
-    text: "Finální návrh, smlouva jako PDF ze šablony a navržený měsíční rozpočet. Založí zakázku.",
-  },
-  {
-    key: "offer_budget",
-    title: "Dotaz na rozpočet",
-    text: "Zeptá se klienta, kolik je ochoten měsíčně platit za správu. Z odpovědi pak kalkulačka v Balíčcích složí 3 balíčky.",
+    title: "L2 – návrh, smlouva a rozpočet",
+    text: "Finální návrh, smlouva jako PDF a otázka, kolik je klient ochoten měsíčně platit za správu. Z odpovědi kalkulačka v Balíčcích složí 3 balíčky. Založí zakázku.",
   },
   {
     key: "offer_l3",
     title: "L3 – předplatné",
-    text: "Nabídka předplatného se srovnáním 3 balíčků – ideálně z kalkulačky (bez platebního odkazu).",
+    text: "Nabídka 3 balíčků spočítaných v kalkulačce. Klient si vybere a vy jeho volbu označíte v zakázce.",
   },
 ] as const;
 
 export function ComposeForm({
   leads,
   clients,
-  tiers,
   packageOffers,
   initialOfferId,
   initialRecipient,
@@ -58,7 +51,6 @@ export function ComposeForm({
   const clientOffers = packageOffers.filter((o) => `client:${o.clientId}` === recipient);
   const [offerId, setOfferId] = useState(initialOfferId);
   const effectiveOffer = clientOffers.some((o) => o.id === offerId) ? offerId : (clientOffers[0]?.id ?? "");
-  const [tierId, setTierId] = useState(tiers[1]?.id ?? tiers[0]?.id ?? "");
   const client = recipient.startsWith("client:")
     ? clients.find((c) => `client:${c.id}` === recipient)
     : undefined;
@@ -168,30 +160,6 @@ export function ComposeForm({
               .
             </p>
           ) : null}
-        </div>
-      ) : null}
-
-      {level === "offer_l2" || (level === "offer_l3" && !effectiveOffer) ? (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="grid grid-cols-1 gap-1.5">
-            <Label htmlFor="tierId">Navržený balíček (obsah)</Label>
-            <NativeSelect
-              id="tierId"
-              name="tierId"
-              value={tierId}
-              onChange={(e) => setTierId(e.target.value)}
-            >
-              {tiers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-          <div className="grid grid-cols-1 gap-1.5">
-            <Label htmlFor="price">Měsíční cena pro tohoto klienta (Kč, nepovinné)</Label>
-            <Input id="price" name="price" inputMode="decimal" placeholder="např. 990" />
-          </div>
         </div>
       ) : null}
 
